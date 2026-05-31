@@ -11,7 +11,7 @@ beforeEach(function () {
 });
 
 test('dashboard stats endpoint returns all stat keys', function () {
-    createTestVariant(stock: 100, reserved: 10);
+    createTestCell(stock: 100, reserved: 10);
 
     $this->actingAs(userWithRole('Staff'))
         ->getJson(route('dashboard.stats'))
@@ -19,7 +19,6 @@ test('dashboard stats endpoint returns all stat keys', function () {
         ->assertJsonPath('success', true)
         ->assertJsonStructure([
             'data' => [
-                'total_categories',
                 'total_products',
                 'total_stock',
                 'total_reserved',
@@ -49,12 +48,12 @@ test('dashboard stats endpoint requires view dashboard permission', function () 
 });
 
 test('dashboard stats reflect stock movement changes', function () {
-    $variant = createTestVariant(stock: 10);
+    $cell = createTestCell(stock: 10);
     $service = app(InventoryService::class);
 
     $this->actingAs(userWithRole('Staff'));
 
-    $service->stockIn($variant, 5);
+    $service->stockIn($cell, 5);
 
     $this->getJson(route('dashboard.stats'))
         ->assertOk()

@@ -15,11 +15,6 @@ class PermissionSeeder extends Seeder
 
         $permissions = [
             'view dashboard',
-            'view categories',
-            'create categories',
-            'edit categories',
-            'delete categories',
-            'manage sizes',
             'view products',
             'create products',
             'edit products',
@@ -37,6 +32,8 @@ class PermissionSeeder extends Seeder
             'manage users',
             'manage roles',
             'manage permissions',
+            'manage sizes',
+            'manage colors',
         ];
 
         foreach ($permissions as $permission) {
@@ -58,10 +55,6 @@ class PermissionSeeder extends Seeder
 
         $staffPermissions = Permission::whereIn('name', [
             'view dashboard',
-            'view categories',
-            'create categories',
-            'edit categories',
-            'delete categories',
             'view products',
             'create products',
             'edit products',
@@ -81,7 +74,6 @@ class PermissionSeeder extends Seeder
 
         $viewerPermissions = Permission::whereIn('name', [
             'view dashboard',
-            'view categories',
             'view products',
             'view inventory',
             'view stock history',

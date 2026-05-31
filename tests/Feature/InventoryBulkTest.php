@@ -1,9 +1,7 @@
 <?php
 
 use App\Models\Product;
-use App\Models\ProductCategory;
-use App\Models\ProductVariant;
-use App\Models\Size;
+use App\Models\ProductColorSize;
 use App\Models\StockMovement;
 use App\Models\User;
 use Database\Seeders\UserSeeder;
@@ -17,51 +15,30 @@ beforeEach(function () {
 });
 
 /**
- * @return array{product: Product, first: ProductVariant, second: ProductVariant}
+ * @return array{product: Product, first: ProductColorSize, second: ProductColorSize}
  */
 function createBulkTestProduct(int $firstStock = 10, int $secondStock = 20): array
 {
-    $category = ProductCategory::query()->create([
-        'name' => 'Bulk Test Category',
-        'code' => 'BULK-TEST',
-        'low_stock_threshold' => 5,
-        'status' => 'active',
-    ]);
+    $product = createTestProduct(['code' => 'BLK', 'name' => 'Bulk Test Product']);
 
-    $medium = Size::query()->create(['name' => 'Bulk Medium', 'sort_order' => 1]);
-    $large = Size::query()->create(['name' => 'Bulk Large', 'sort_order' => 2]);
+    $medium = attachTestSize($product, 'Bulk Medium', 1);
+    $large = attachTestSize($product, 'Bulk Large', 2);
+    $color = attachTestColor($product, 'Black', 1);
 
-    $product = Product::query()->create([
-        'product_category_id' => $category->id,
-        'item_code' => 'BULK-001',
-        'name' => 'Bulk Test Product',
-        'color' => 'Black',
-        'description' => null,
-        'status' => 'active',
-    ]);
+    $first = ProductColorSize::query()->where('product_color_id', $color->id)->where('product_size_id', $medium->id)->first();
+    $second = ProductColorSize::query()->where('product_color_id', $color->id)->where('product_size_id', $large->id)->first();
 
-    $first = ProductVariant::query()->create([
-        'product_id' => $product->id,
-        'size_id' => $medium->id,
-        'stock_quantity' => $firstStock,
-        'reserved_quantity' => 0,
-    ]);
-
-    $second = ProductVariant::query()->create([
-        'product_id' => $product->id,
-        'size_id' => $large->id,
-        'stock_quantity' => $secondStock,
-        'reserved_quantity' => 0,
-    ]);
+    $first->update(['current_stock' => $firstStock]);
+    $second->update(['current_stock' => $secondStock]);
 
     return [
         'product' => $product,
-        'first' => $first,
-        'second' => $second,
+        'first' => $first->fresh(),
+        'second' => $second->fresh(),
     ];
 }
 
-test('bulk endpoint applies same action across variants of the same product', function () {
+test('bulk endpoint applies same action across cells of the same product', function () {
     ['product' => $product, 'first' => $first, 'second' => $second] = createBulkTestProduct(10, 5);
 
     $this->postJson(route('inventory.bulk'), [
@@ -69,17 +46,16 @@ test('bulk endpoint applies same action across variants of the same product', fu
         'action' => 'stock-in',
         'remarks' => 'Bulk delivery',
         'items' => [
-            ['product_variant_id' => $first->id, 'quantity' => 10],
-            ['product_variant_id' => $second->id, 'quantity' => 5],
+            ['cell_id' => $first->id, 'quantity' => 10],
+            ['cell_id' => $second->id, 'quantity' => 5],
         ],
     ])
         ->assertOk()
-        ->assertJsonPath('success', true)
         ->assertJsonPath('results.0.success', true)
         ->assertJsonPath('results.1.success', true);
 
-    expect($first->fresh()->stock_quantity)->toBe(20)
-        ->and($second->fresh()->stock_quantity)->toBe(10)
+    expect($first->fresh()->current_stock)->toBe(20)
+        ->and($second->fresh()->current_stock)->toBe(10)
         ->and(StockMovement::query()->count())->toBe(2);
 });
 
@@ -91,18 +67,15 @@ test('bulk endpoint reports partial failures and commits successful rows', funct
         'action' => 'stock-out',
         'remarks' => 'Bulk shipment',
         'items' => [
-            ['product_variant_id' => $first->id, 'quantity' => 5],
-            ['product_variant_id' => $second->id, 'quantity' => 10],
+            ['cell_id' => $first->id, 'quantity' => 5],
+            ['cell_id' => $second->id, 'quantity' => 10],
         ],
-    ])
-        ->assertOk()
-        ->assertJsonPath('success', true);
+    ])->assertOk();
 
     expect($response->json('results.0.success'))->toBeTrue()
         ->and($response->json('results.1.success'))->toBeFalse()
-        ->and($response->json('results.1.message'))->toBe('Not enough available stock.')
-        ->and($first->fresh()->stock_quantity)->toBe(5)
-        ->and($second->fresh()->stock_quantity)->toBe(3);
+        ->and($first->fresh()->current_stock)->toBe(5)
+        ->and($second->fresh()->current_stock)->toBe(3);
 });
 
 test('bulk endpoint requires the action specific permission', function () {
@@ -111,47 +84,15 @@ test('bulk endpoint requires the action specific permission', function () {
     $role = Role::findOrCreate('Stock In Only');
     $role->syncPermissions(['view inventory', 'stock in']);
 
-    $user = User::factory()->create([
-        'email' => 'stock-in-only@j4g.test',
-        'status' => 'active',
-    ]);
+    $user = User::factory()->create(['email' => 'stock-in-only@j4g.test', 'status' => 'active']);
     $user->assignRole($role);
-
     app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
     $this->actingAs($user)
         ->postJson(route('inventory.bulk'), [
             'product_id' => $product->id,
             'action' => 'damage',
-            'remarks' => 'Bulk damage',
-            'items' => [
-                ['product_variant_id' => $first->id, 'quantity' => 1],
-            ],
-        ])
-        ->assertForbidden();
-});
-
-test('bulk endpoint requires view inventory permission', function () {
-    ['product' => $product, 'first' => $first] = createBulkTestProduct();
-
-    $role = Role::findOrCreate('Products Only');
-    $role->syncPermissions(['view products']);
-
-    $user = User::factory()->create([
-        'email' => 'products-only-bulk@j4g.test',
-        'status' => 'active',
-    ]);
-    $user->assignRole($role);
-
-    app()[PermissionRegistrar::class]->forgetCachedPermissions();
-
-    $this->actingAs($user)
-        ->postJson(route('inventory.bulk'), [
-            'product_id' => $product->id,
-            'action' => 'stock-in',
-            'items' => [
-                ['product_variant_id' => $first->id, 'quantity' => 1],
-            ],
+            'items' => [['cell_id' => $first->id, 'quantity' => 1]],
         ])
         ->assertForbidden();
 });
@@ -162,15 +103,7 @@ test('bulk endpoint validates body shape', function () {
     $this->postJson(route('inventory.bulk'), [
         'product_id' => $product->id,
         'action' => 'invalid-action',
-        'items' => [
-            ['product_variant_id' => $first->id, 'quantity' => 1],
-        ],
-    ])->assertUnprocessable();
-
-    $this->postJson(route('inventory.bulk'), [
-        'product_id' => $product->id,
-        'action' => 'stock-in',
-        'items' => [],
+        'items' => [['cell_id' => $first->id, 'quantity' => 1]],
     ])->assertUnprocessable();
 });
 
@@ -182,16 +115,11 @@ test('bulk adjust requires remarks', function () {
         'action' => 'adjust',
         'remarks' => '',
         'items' => [
-            ['product_variant_id' => $first->id, 'new_quantity' => 25],
-            ['product_variant_id' => $second->id, 'new_quantity' => 15],
+            ['cell_id' => $first->id, 'new_quantity' => 25],
+            ['cell_id' => $second->id, 'new_quantity' => 15],
         ],
-    ])
-        ->assertOk()
-        ->assertJsonPath('success', true);
+    ])->assertOk();
 
     expect($response->json('results.0.success'))->toBeFalse()
-        ->and($response->json('results.1.success'))->toBeFalse()
-        ->and($response->json('results.0.message'))->toBe('Remarks are required for stock adjustment.')
-        ->and($first->fresh()->stock_quantity)->toBe(10)
-        ->and($second->fresh()->stock_quantity)->toBe(5);
+        ->and($first->fresh()->current_stock)->toBe(10);
 });

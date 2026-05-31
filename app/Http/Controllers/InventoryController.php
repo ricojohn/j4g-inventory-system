@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Inventory\AdjustStockRequest;
 use App\Http\Requests\Inventory\BulkStockMovementRequest;
 use App\Http\Requests\Inventory\StockMovementRequest;
-use App\Models\ProductVariant;
+use App\Models\ProductColorSize;
 use App\Services\InventoryService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -21,35 +21,35 @@ class InventoryController extends Controller
     {
         abort_unless($request->user()?->can('stock in'), 403);
 
-        return $this->handleMovement($request, fn ($variant, $quantity, $remarks) => $this->inventoryService->stockIn($variant, $quantity, $remarks));
+        return $this->handleMovement($request, fn ($cell, $quantity, $remarks) => $this->inventoryService->stockIn($cell, $quantity, $remarks));
     }
 
     public function stockOut(StockMovementRequest $request): JsonResponse
     {
         abort_unless($request->user()?->can('stock out'), 403);
 
-        return $this->handleMovement($request, fn ($variant, $quantity, $remarks) => $this->inventoryService->stockOut($variant, $quantity, $remarks));
+        return $this->handleMovement($request, fn ($cell, $quantity, $remarks) => $this->inventoryService->stockOut($cell, $quantity, $remarks));
     }
 
     public function reserve(StockMovementRequest $request): JsonResponse
     {
         abort_unless($request->user()?->can('reserve stock'), 403);
 
-        return $this->handleMovement($request, fn ($variant, $quantity, $remarks) => $this->inventoryService->reserve($variant, $quantity, $remarks));
+        return $this->handleMovement($request, fn ($cell, $quantity, $remarks) => $this->inventoryService->reserve($cell, $quantity, $remarks));
     }
 
     public function release(StockMovementRequest $request): JsonResponse
     {
         abort_unless($request->user()?->can('release stock'), 403);
 
-        return $this->handleMovement($request, fn ($variant, $quantity, $remarks) => $this->inventoryService->release($variant, $quantity, $remarks));
+        return $this->handleMovement($request, fn ($cell, $quantity, $remarks) => $this->inventoryService->release($cell, $quantity, $remarks));
     }
 
     public function damage(StockMovementRequest $request): JsonResponse
     {
         abort_unless($request->user()?->can('damage stock'), 403);
 
-        return $this->handleMovement($request, fn ($variant, $quantity, $remarks) => $this->inventoryService->damage($variant, $quantity, $remarks));
+        return $this->handleMovement($request, fn ($cell, $quantity, $remarks) => $this->inventoryService->damage($cell, $quantity, $remarks));
     }
 
     public function adjust(AdjustStockRequest $request): JsonResponse
@@ -57,19 +57,20 @@ class InventoryController extends Controller
         abort_unless($request->user()?->can('adjust stock'), 403);
 
         try {
-            $variant = ProductVariant::query()->findOrFail($request->integer('product_variant_id'));
-            $updatedVariant = $this->inventoryService->adjust(
-                $variant,
+            $cell = $this->resolveCell($request->integer('cell_id'));
+            $updatedCell = $this->inventoryService->adjust(
+                $cell,
                 $request->integer('new_quantity'),
-                $request->string('remarks')
+                $request->string('remarks'),
+                $request->filled('reorder_level') ? $request->integer('reorder_level') : null
             );
 
             return response()->json([
                 'success' => true,
                 'message' => 'Stock adjusted successfully.',
-                'data' => $this->inventoryService->formatVariantResponse($updatedVariant),
+                'data' => $this->inventoryService->formatCellResponse($updatedCell),
             ]);
-        } catch (RuntimeException $exception) {
+        } catch (RuntimeException|InvalidArgumentException $exception) {
             return response()->json([
                 'success' => false,
                 'message' => $exception->getMessage(),
@@ -103,40 +104,42 @@ class InventoryController extends Controller
         $successCount = 0;
 
         foreach ($items as $item) {
-            $variantId = (int) $item['product_variant_id'];
+            $cellId = (int) $item['cell_id'];
 
             try {
-                $variant = ProductVariant::query()
-                    ->whereKey($variantId)
-                    ->where('product_id', $productId)
+                $cell = ProductColorSize::query()
+                    ->whereKey($cellId)
+                    ->whereHas('color', fn ($query) => $query->where('product_id', $productId))
                     ->firstOrFail();
 
-                $updatedVariant = $this->applyBulkAction($action, $variant, $item, $remarks);
+                $this->ensureProductIsActive($cell);
+
+                $updatedCell = $this->applyBulkAction($action, $cell, $item, $remarks);
 
                 $results[] = [
-                    'variant_id' => $variantId,
+                    'cell_id' => $cellId,
                     'success' => true,
                     'message' => null,
-                    'data' => $this->inventoryService->formatVariantResponse($updatedVariant),
+                    'data' => $this->inventoryService->formatCellResponse($updatedCell),
                 ];
                 $successCount++;
             } catch (ModelNotFoundException) {
                 $results[] = [
-                    'variant_id' => $variantId,
+                    'cell_id' => $cellId,
                     'success' => false,
-                    'message' => 'Variant not found for this product.',
+                    'message' => 'Cell not found for this product.',
                     'data' => null,
                 ];
             } catch (RuntimeException|InvalidArgumentException $exception) {
                 $results[] = [
-                    'variant_id' => $variantId,
+                    'cell_id' => $cellId,
                     'success' => false,
                     'message' => $exception->getMessage(),
                     'data' => null,
                 ];
             } catch (Throwable) {
                 $results[] = [
-                    'variant_id' => $variantId,
+                    'cell_id' => $cellId,
                     'success' => false,
                     'message' => 'Unable to update stock.',
                     'data' => null,
@@ -150,21 +153,21 @@ class InventoryController extends Controller
             'success' => true,
             'action' => $action,
             'results' => $results,
-            'message' => "{$successCount} of {$total} variants updated.",
+            'message' => "{$successCount} of {$total} cells updated.",
         ]);
     }
 
     /**
      * @param  array<string, mixed>  $item
      */
-    private function applyBulkAction(string $action, ProductVariant $variant, array $item, ?string $remarks): ProductVariant
+    private function applyBulkAction(string $action, ProductColorSize $cell, array $item, ?string $remarks): ProductColorSize
     {
         if ($action === 'adjust') {
             if (! array_key_exists('new_quantity', $item)) {
                 throw new RuntimeException('New quantity is required for adjustment.');
             }
 
-            return $this->inventoryService->adjust($variant, (int) $item['new_quantity'], $remarks ?? '');
+            return $this->inventoryService->adjust($cell, (int) $item['new_quantity'], $remarks ?? '');
         }
 
         if (! array_key_exists('quantity', $item) || (int) $item['quantity'] < 1) {
@@ -174,24 +177,24 @@ class InventoryController extends Controller
         $quantity = (int) $item['quantity'];
 
         return match ($action) {
-            'stock-in' => $this->inventoryService->stockIn($variant, $quantity, $remarks),
-            'stock-out' => $this->inventoryService->stockOut($variant, $quantity, $remarks),
-            'reserve' => $this->inventoryService->reserve($variant, $quantity, $remarks),
-            'release' => $this->inventoryService->release($variant, $quantity, $remarks),
-            'damage' => $this->inventoryService->damage($variant, $quantity, $remarks),
+            'stock-in' => $this->inventoryService->stockIn($cell, $quantity, $remarks),
+            'stock-out' => $this->inventoryService->stockOut($cell, $quantity, $remarks),
+            'reserve' => $this->inventoryService->reserve($cell, $quantity, $remarks),
+            'release' => $this->inventoryService->release($cell, $quantity, $remarks),
+            'damage' => $this->inventoryService->damage($cell, $quantity, $remarks),
             default => throw new RuntimeException('Unsupported inventory action.'),
         };
     }
 
     /**
-     * @param  callable(ProductVariant, int, ?string): ProductVariant  $callback
+     * @param  callable(ProductColorSize, int, ?string): ProductColorSize  $callback
      */
     private function handleMovement(StockMovementRequest $request, callable $callback): JsonResponse
     {
         try {
-            $variant = ProductVariant::query()->findOrFail($request->integer('product_variant_id'));
-            $updatedVariant = $callback(
-                $variant,
+            $cell = $this->resolveCell($request->integer('cell_id'));
+            $updatedCell = $callback(
+                $cell,
                 $request->integer('quantity'),
                 $request->input('remarks')
             );
@@ -199,7 +202,7 @@ class InventoryController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Stock updated successfully.',
-                'data' => $this->inventoryService->formatVariantResponse($updatedVariant),
+                'data' => $this->inventoryService->formatCellResponse($updatedCell),
             ]);
         } catch (RuntimeException $exception) {
             return response()->json([
@@ -211,6 +214,24 @@ class InventoryController extends Controller
                 'success' => false,
                 'message' => 'Unable to update stock.',
             ], 500);
+        }
+    }
+
+    private function resolveCell(int $cellId): ProductColorSize
+    {
+        $cell = ProductColorSize::query()
+            ->with('color.product')
+            ->findOrFail($cellId);
+
+        $this->ensureProductIsActive($cell);
+
+        return $cell;
+    }
+
+    private function ensureProductIsActive(ProductColorSize $cell): void
+    {
+        if ($cell->color->product->status === 'inactive') {
+            throw new RuntimeException('Cannot update inventory for an inactive product.');
         }
     }
 }

@@ -3,107 +3,101 @@
 @section('page-title', 'Manage Inventory')
 
 @section('content')
-    <x-ui.page-header :title="$product->name" :subtitle="$product->item_code . ' · ' . $product->category->name . ' · ' . $product->color">
+    <x-ui.page-header :title="$product->name" :subtitle="$product->code">
         <x-slot:actions>
-            @canany(['stock in', 'stock out', 'reserve stock', 'release stock', 'damage stock', 'adjust stock'])
-                <x-ui.button type="button" variant="secondary" id="open-bulk-inventory-modal">Bulk Update</x-ui.button>
-            @endcanany
+            @if (! $readOnly)
+                @canany(['stock in', 'stock out', 'reserve stock', 'release stock', 'damage stock', 'adjust stock'])
+                    <x-ui.button type="button" variant="secondary" id="open-bulk-modal">Bulk Update</x-ui.button>
+                @endcanany
+            @endif
             <x-ui.button variant="secondary" :href="route('products.index')">Back to Products</x-ui.button>
         </x-slot:actions>
     </x-ui.page-header>
 
-    <x-ui.page-card>
-        <x-slot:toolbar>
-            <div class="ui-toolbar-form">
-                <x-ui.input type="search" id="inventory-search" placeholder="Search sizes..." class="!w-auto min-w-48" />
-                <x-ui.select id="inventory-per-page" class="!w-auto min-w-28">
-                    <option value="25">25 / page</option>
-                    <option value="50">50 / page</option>
-                    <option value="100">100 / page</option>
-                </x-ui.select>
-            </div>
-        </x-slot:toolbar>
+    @if ($readOnly)
+        <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+            This product is inactive — reactivate it from the edit page to manage stock.
+        </div>
+    @endif
 
-        <x-ui.table-wrap>
-            <x-ui.async-table tbody-id="product-inventory-table-body" pagination-id="product-inventory-pagination">
-                <x-slot:head>
-                    <tr>
-                        <th>Size</th>
-                        <th>Stock</th>
-                        <th>Reserved</th>
-                        <th>Available</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </x-slot:head>
-            </x-ui.async-table>
-        </x-ui.table-wrap>
+    <x-ui.page-card>
+        <div id="inventory-grid-wrap" class="overflow-x-auto p-4">
+            <p class="text-[13px] text-gray-500">Loading inventory grid...</p>
+        </div>
     </x-ui.page-card>
 
-    <div id="inventory-modal" class="ui-modal-overlay hidden">
-        <div class="ui-modal-panel max-w-md">
-            <div class="ui-modal-header">
-                <h2 id="inventory-modal-title" class="text-[13px] font-semibold text-gray-900">Stock Action</h2>
-                <p id="inventory-modal-description" class="mt-0.5 text-[13px] text-gray-500">Enter the quantity and optional remarks.</p>
+    <div id="bulk-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true">
+        <div class="ui-modal-panel flex max-h-[90vh] max-w-3xl flex-col overflow-hidden">
+            <div class="ui-modal-header shrink-0">
+                <h2 class="text-[13px] font-semibold text-gray-900">Bulk Update</h2>
+                <p class="mt-0.5 text-[13px] text-gray-500">{{ $product->name }} — enter a quantity for each cell you want to include.</p>
             </div>
-            <form id="inventory-form">
-                <div class="ui-modal-body space-y-4">
-                    <input type="hidden" id="inventory-variant-id">
-                    <input type="hidden" id="inventory-action-type">
-                    <div id="quantity-field">
-                        <x-ui.label for="inventory-quantity">Quantity</x-ui.label>
-                        <x-ui.input id="inventory-quantity" type="number" min="1" />
+            <form id="bulk-form" class="flex min-h-0 flex-1 flex-col">
+                <div class="flex min-h-0 flex-1 flex-col gap-3 p-4">
+                    <div class="grid shrink-0 gap-3 sm:grid-cols-2">
+                        <div>
+                            <x-ui.label for="bulk-action">Action</x-ui.label>
+                            <x-ui.select id="bulk-action"></x-ui.select>
+                        </div>
+                        <div>
+                            <x-ui.label for="bulk-remarks">Remarks</x-ui.label>
+                            <x-ui.input id="bulk-remarks" type="text" />
+                        </div>
                     </div>
-                    <div id="new-quantity-field" class="hidden">
-                        <x-ui.label for="inventory-new-quantity">New Quantity</x-ui.label>
-                        <x-ui.input id="inventory-new-quantity" type="number" min="0" />
+                    <div id="bulk-rows-scroll" class="flex min-h-0 flex-1 overflow-y-auto rounded border border-gray-200">
+                        <table class="ui-table">
+                            <thead class="sticky top-0 z-10 bg-gray-50">
+                                <tr>
+                                    <th>Color</th>
+                                    <th>Size</th>
+                                    <th>Current</th>
+                                    <th id="bulk-qty-header">Quantity</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulk-rows"></tbody>
+                        </table>
                     </div>
-                    <div>
-                        <x-ui.label for="inventory-remarks">Remarks</x-ui.label>
-                        <x-ui.textarea id="inventory-remarks" rows="3"></x-ui.textarea>
-                    </div>
+                    <p id="bulk-status" class="hidden shrink-0 whitespace-pre-line text-[12px] text-amber-700"></p>
                 </div>
-                <div class="ui-modal-footer">
-                    <x-ui.button variant="secondary" type="button" id="close-inventory-modal">Cancel</x-ui.button>
-                    <x-ui.button type="submit" id="inventory-submit">Submit</x-ui.button>
+                <div class="ui-modal-footer shrink-0">
+                    <x-ui.button type="button" variant="secondary" data-close="bulk-modal">Cancel</x-ui.button>
+                    <x-ui.button type="submit" id="bulk-submit">Apply</x-ui.button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div id="bulk-inventory-modal" class="ui-modal-overlay hidden">
-        <div class="ui-modal-panel max-w-2xl">
+    <div id="cell-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true">
+        <div class="ui-modal-panel max-w-md overflow-hidden">
             <div class="ui-modal-header">
-                <h2 class="text-[13px] font-semibold text-gray-900">Bulk Update</h2>
-                <p class="mt-0.5 text-[13px] text-gray-500">{{ $product->name }}</p>
-                <p id="bulk-inventory-status" class="mt-1 hidden text-[13px] text-amber-800"></p>
+                <h2 id="cell-modal-title" class="text-[13px] font-semibold text-gray-900">Update Stock</h2>
+                <p id="cell-modal-subtitle" class="mt-0.5 text-[13px] text-gray-500"></p>
             </div>
-            <form id="bulk-inventory-form">
-                <div class="ui-modal-body space-y-4">
+            <form id="cell-form">
+                <div class="ui-modal-body space-y-3">
+                    <input type="hidden" id="cell-id">
                     <div>
-                        <x-ui.label for="bulk-inventory-action">Action</x-ui.label>
-                        <x-ui.select id="bulk-inventory-action" class="mt-1"></x-ui.select>
+                        <x-ui.label for="cell-action">Action</x-ui.label>
+                        <x-ui.select id="cell-action"></x-ui.select>
+                    </div>
+                    <div id="cell-qty-wrap">
+                        <x-ui.label for="cell-quantity">Quantity</x-ui.label>
+                        <x-ui.input id="cell-quantity" type="number" min="1" />
+                    </div>
+                    <div id="cell-new-qty-wrap" class="hidden">
+                        <x-ui.label for="cell-new-quantity">New Quantity</x-ui.label>
+                        <x-ui.input id="cell-new-quantity" type="number" min="0" />
+                        <x-ui.label for="cell-reorder-level" class="mt-2">Reorder Level</x-ui.label>
+                        <x-ui.input id="cell-reorder-level" type="number" min="0" />
                     </div>
                     <div>
-                        <x-ui.label for="bulk-inventory-remarks">Remarks</x-ui.label>
-                        <x-ui.textarea id="bulk-inventory-remarks" rows="2" class="mt-1"></x-ui.textarea>
+                        <x-ui.label for="cell-remarks">Remarks</x-ui.label>
+                        <x-ui.textarea id="cell-remarks" rows="2"></x-ui.textarea>
                     </div>
-                    <x-ui.table-wrap>
-                        <table class="ui-table">
-                            <thead>
-                                <tr>
-                                    <th>Size</th>
-                                    <th>Current</th>
-                                    <th id="bulk-inventory-qty-header">Quantity</th>
-                                </tr>
-                            </thead>
-                            <tbody id="bulk-inventory-rows"></tbody>
-                        </table>
-                    </x-ui.table-wrap>
                 </div>
                 <div class="ui-modal-footer">
-                    <x-ui.button variant="secondary" type="button" id="close-bulk-inventory-modal">Cancel</x-ui.button>
-                    <x-ui.button type="submit" id="bulk-inventory-submit">Save bulk</x-ui.button>
+                    <x-ui.button type="button" variant="secondary" data-close="cell-modal">Cancel</x-ui.button>
+                    <x-ui.button type="submit">Submit</x-ui.button>
                 </div>
             </form>
         </div>
@@ -112,340 +106,259 @@
 
 @push('scripts')
 @php
-    $tableConfig = [
+    $inventoryConfig = [
         'productId' => $product->id,
         'dataUrl' => route('products.inventory.data', $product),
-        'bulkUrl' => route('inventory.bulk'),
+        'readOnly' => $readOnly,
         'permissions' => [
-            'canStockIn' => auth()->user()?->can('stock in'),
-            'canStockOut' => auth()->user()?->can('stock out'),
-            'canReserve' => auth()->user()?->can('reserve stock'),
-            'canRelease' => auth()->user()?->can('release stock'),
-            'canDamage' => auth()->user()?->can('damage stock'),
-            'canAdjust' => auth()->user()?->can('adjust stock'),
+            'stockIn' => auth()->user()?->can('stock in'),
+            'stockOut' => auth()->user()?->can('stock out'),
+            'reserve' => auth()->user()?->can('reserve stock'),
+            'release' => auth()->user()?->can('release stock'),
+            'damage' => auth()->user()?->can('damage stock'),
+            'adjust' => auth()->user()?->can('adjust stock'),
+        ],
+        'routes' => [
+            'stockIn' => route('inventory.stock-in'),
+            'stockOut' => route('inventory.stock-out'),
+            'reserve' => route('inventory.reserve'),
+            'release' => route('inventory.release'),
+            'damage' => route('inventory.damage'),
+            'adjust' => route('inventory.adjust'),
+            'bulk' => route('inventory.bulk'),
         ],
     ];
 @endphp
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    window.tableConfig = @json($tableConfig);
+    const config = @json($inventoryConfig);
+    let gridData = null;
 
-    const permissions = window.tableConfig.permissions;
-    const modal = document.getElementById('inventory-modal');
-    const form = document.getElementById('inventory-form');
-    const submitButton = document.getElementById('inventory-submit');
-    const tableBody = document.getElementById('product-inventory-table-body');
-    const bulkModal = document.getElementById('bulk-inventory-modal');
-    const bulkForm = document.getElementById('bulk-inventory-form');
-    const bulkSubmitButton = document.getElementById('bulk-inventory-submit');
-    const bulkRowsBody = document.getElementById('bulk-inventory-rows');
-    const bulkActionSelect = document.getElementById('bulk-inventory-action');
-    const bulkRemarksInput = document.getElementById('bulk-inventory-remarks');
-    const bulkQtyHeader = document.getElementById('bulk-inventory-qty-header');
-    const bulkStatus = document.getElementById('bulk-inventory-status');
-    let bulkVariants = [];
+    const actionOptions = [];
+    if (config.permissions.stockIn) actionOptions.push({ value: 'stock-in', label: 'Stock In', route: config.routes.stockIn });
+    if (config.permissions.stockOut) actionOptions.push({ value: 'stock-out', label: 'Stock Out', route: config.routes.stockOut });
+    if (config.permissions.reserve) actionOptions.push({ value: 'reserve', label: 'Reserve', route: config.routes.reserve });
+    if (config.permissions.release) actionOptions.push({ value: 'release', label: 'Release', route: config.routes.release });
+    if (config.permissions.damage) actionOptions.push({ value: 'damage', label: 'Damage', route: config.routes.damage });
+    if (config.permissions.adjust) actionOptions.push({ value: 'adjust', label: 'Adjust', route: config.routes.adjust });
 
-    const routes = {
-        'stock-in': @json(route('inventory.stock-in')),
-        'stock-out': @json(route('inventory.stock-out')),
-        'reserve': @json(route('inventory.reserve')),
-        'release': @json(route('inventory.release')),
-        'damage': @json(route('inventory.damage')),
-        'adjust': @json(route('inventory.adjust')),
-    };
-    const titles = {
-        'stock-in': 'Stock In',
-        'stock-out': 'Stock Out',
-        'reserve': 'Reserve Stock',
-        'release': 'Release Stock',
-        'damage': 'Mark Damaged',
-        'adjust': 'Adjust Stock',
-    };
-    const bulkActionOptions = [
-        { value: 'stock-in', label: 'Stock In', allowed: permissions.canStockIn },
-        { value: 'stock-out', label: 'Stock Out', allowed: permissions.canStockOut },
-        { value: 'reserve', label: 'Reserve', allowed: permissions.canReserve },
-        { value: 'release', label: 'Release', allowed: permissions.canRelease },
-        { value: 'damage', label: 'Damage', allowed: permissions.canDamage },
-        { value: 'adjust', label: 'Adjust', allowed: permissions.canAdjust },
-    ].filter((option) => option.allowed);
+    const actionSelect = document.getElementById('cell-action');
+    actionSelect.innerHTML = actionOptions.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
 
-    const table = initAsyncTable({
-        tbodyId: 'product-inventory-table-body',
-        paginationId: 'product-inventory-pagination',
-        dataUrl: window.tableConfig.dataUrl,
-        columnCount: 6,
-        emptyMessage: 'No variants found.',
-        getParams: () => ({
-            search: document.getElementById('inventory-search')?.value ?? '',
-        }),
-        getPerPage: () => Number(document.getElementById('inventory-per-page')?.value ?? 25),
-        renderRows: (rows) => rows.map((variant) => `
-            <tr data-variant-id="${variant.id}">
-                <td>${escapeHtml(variant.size_name)}</td>
-                <td data-stock-quantity>${variant.stock_quantity}</td>
-                <td data-reserved-quantity>${variant.reserved_quantity}</td>
-                <td data-available-stock>${variant.available_stock}</td>
-                <td>${renderStockBadge(variant.status, variant.status_label)}</td>
-                <td>
-                    <div class="flex flex-wrap items-center gap-1">
-                        ${permissions.canStockIn ? `<button type="button" class="inventory-action ui-row-action border border-gray-300 bg-white" data-action="stock-in" data-variant-id="${variant.id}">In</button>` : ''}
-                        ${permissions.canStockOut ? `<button type="button" class="inventory-action ui-row-action border border-gray-300 bg-white" data-action="stock-out" data-variant-id="${variant.id}">Out</button>` : ''}
-                        ${permissions.canReserve ? `<button type="button" class="inventory-action ui-row-action border border-gray-300 bg-white" data-action="reserve" data-variant-id="${variant.id}">Reserve</button>` : ''}
-                        ${permissions.canRelease ? `<button type="button" class="inventory-action ui-row-action border border-gray-300 bg-white" data-action="release" data-variant-id="${variant.id}">Release</button>` : ''}
-                        ${permissions.canDamage ? `<button type="button" class="inventory-action ui-row-action border border-gray-300 bg-white" data-action="damage" data-variant-id="${variant.id}">Damage</button>` : ''}
-                        ${permissions.canAdjust ? `<button type="button" class="inventory-action ui-row-action border border-gray-300 bg-white" data-action="adjust" data-variant-id="${variant.id}">Adjust</button>` : ''}
-                    </div>
-                </td>
-            </tr>
-        `).join(''),
-    });
+    async function loadGrid() {
+        const response = await fetch(config.dataUrl, { headers: { Accept: 'application/json' } });
+        gridData = await response.json();
+        renderGrid();
+    }
 
-    table.loadData(1);
+    function renderGrid() {
+        const wrap = document.getElementById('inventory-grid-wrap');
+        const { sizes, colors } = gridData;
 
-    document.getElementById('inventory-search')?.addEventListener('input', debounce(() => table.loadData(1), 300));
-    document.getElementById('inventory-per-page')?.addEventListener('change', () => table.loadData(1));
-
-    const showModal = () => modal?.classList.remove('hidden');
-    const hideModal = () => modal?.classList.add('hidden');
-    const showBulkModal = () => bulkModal?.classList.remove('hidden');
-    const hideBulkModal = () => bulkModal?.classList.add('hidden');
-
-    function buildBulkActionSelect() {
-        if (!bulkActionSelect) {
+        if (!sizes.length || !colors.length) {
+            wrap.innerHTML = '<p class="text-[13px] text-gray-500">Add sizes and colors on the product edit page first.</p>';
             return;
         }
 
-        bulkActionSelect.innerHTML = bulkActionOptions
-            .map((option) => `<option value="${option.value}">${escapeHtml(option.label)}</option>`)
+        let html = '<table class="ui-table min-w-full"><thead><tr><th>Color</th>';
+        sizes.forEach(s => { html += `<th>${escapeHtml(s.size_name)}</th>`; });
+        html += '</tr></thead><tbody>';
+
+        colors.forEach(color => {
+            html += `<tr><td class="whitespace-nowrap"><div class="font-medium">${escapeHtml(color.item_code)}</div><div class="text-gray-500">${escapeHtml(color.color_name)}</div></td>`;
+            sizes.forEach(size => {
+                const cell = color.cells[size.id];
+                if (!cell) {
+                    html += '<td>-</td>';
+                    return;
+                }
+                const reserved = cell.reserved_quantity > 0 ? `<div class="text-[11px] text-gray-500">(${cell.reserved_quantity} reserved)</div>` : '';
+                const clickable = !config.readOnly && actionOptions.length ? 'cursor-pointer hover:bg-gray-50' : '';
+                html += `<td class="${clickable} p-2" data-cell-id="${cell.id}" data-cell-label="${escapeHtml(color.color_name)} / ${escapeHtml(size.size_name)}">
+                    <div class="font-medium">${cell.current_stock}</div>${reserved}
+                    ${renderStockBadge(cell.status, cell.status_label)}
+                </td>`;
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        wrap.innerHTML = html;
+    }
+
+    document.getElementById('inventory-grid-wrap')?.addEventListener('click', (e) => {
+        const td = e.target.closest('[data-cell-id]');
+        if (!td || config.readOnly) return;
+        openCellModal(td.dataset.cellId, td.dataset.cellLabel);
+    });
+
+    const cellModal = document.getElementById('cell-modal');
+    const bulkModal = document.getElementById('bulk-modal');
+
+    const closeOverlay = (overlay) => {
+        overlay.classList.add('hidden');
+    };
+
+    [cellModal, bulkModal].forEach((overlay) => {
+        if (! overlay) {
+            return;
+        }
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                closeOverlay(overlay);
+            }
+        });
+
+        overlay.querySelectorAll('[data-close]').forEach((btn) => {
+            btn.addEventListener('click', () => closeOverlay(overlay));
+        });
+    });
+
+    function openCellModal(cellId, label) {
+        document.getElementById('cell-id').value = cellId;
+        document.getElementById('cell-modal-subtitle').textContent = label;
+        cellModal.classList.remove('hidden');
+    }
+
+    actionSelect?.addEventListener('change', () => {
+        const isAdjust = actionSelect.value === 'adjust';
+        document.getElementById('cell-qty-wrap').classList.toggle('hidden', isAdjust);
+        document.getElementById('cell-new-qty-wrap').classList.toggle('hidden', !isAdjust);
+    });
+
+    document.getElementById('cell-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const action = actionOptions.find(o => o.value === actionSelect.value);
+        if (!action) return;
+
+        const payload = {
+            cell_id: Number(document.getElementById('cell-id').value),
+            remarks: document.getElementById('cell-remarks').value || null,
+        };
+
+        if (action.value === 'adjust') {
+            payload.new_quantity = Number(document.getElementById('cell-new-quantity').value);
+            payload.reorder_level = Number(document.getElementById('cell-reorder-level').value);
+            payload.remarks = document.getElementById('cell-remarks').value;
+        } else {
+            payload.quantity = Number(document.getElementById('cell-quantity').value);
+        }
+
+        try {
+            await postData(action.route, payload);
+            showToast('Stock updated.');
+            closeOverlay(cellModal);
+            await loadGrid();
+            window.dispatchEvent(new CustomEvent('inventory:updated'));
+        } catch (error) {
+            showToast(error.message || 'Unable to update stock.', 'error');
+        }
+    });
+
+    window.addEventListener('inventory:updated', () => loadGrid());
+
+    const bulkActionSelect = document.getElementById('bulk-action');
+    const bulkRowsBody = document.getElementById('bulk-rows');
+    const bulkQtyHeader = document.getElementById('bulk-qty-header');
+    const bulkStatus = document.getElementById('bulk-status');
+    const bulkSubmit = document.getElementById('bulk-submit');
+
+    if (bulkActionSelect) {
+        bulkActionSelect.innerHTML = actionOptions
+            .map(o => `<option value="${o.value}">${o.label}</option>`)
             .join('');
     }
 
-    function updateBulkQtyHeader(action) {
-        if (!bulkQtyHeader) {
-            return;
-        }
-
-        bulkQtyHeader.textContent = action === 'adjust' ? 'New Quantity' : 'Quantity';
-    }
-
-    function renderBulkRows(variants) {
-        if (!bulkRowsBody) {
-            return;
-        }
-
-        const action = bulkActionSelect?.value ?? 'stock-in';
-        const min = action === 'adjust' ? 0 : 1;
-
-        bulkRowsBody.innerHTML = variants.map((variant) => `
-            <tr data-bulk-variant-id="${variant.id}" class="border-b border-gray-100">
-                <td>${escapeHtml(variant.size_name)}</td>
-                <td data-bulk-current>${variant.stock_quantity}</td>
-                <td>
-                    <input
-                        type="number"
-                        min="${min}"
-                        data-bulk-qty
-                        class="w-24 rounded-md border border-gray-300 px-2 py-1 text-[13px]"
-                    />
-                    <p data-bulk-error class="mt-1 hidden text-[11px] text-red-600"></p>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    async function openBulkModal() {
-        if (bulkActionOptions.length === 0) {
-            showToast('You do not have permission to perform bulk inventory updates.', 'error');
-            return;
-        }
-
-        buildBulkActionSelect();
-        bulkRemarksInput.value = '';
-        bulkStatus?.classList.add('hidden');
+    document.getElementById('open-bulk-modal')?.addEventListener('click', () => {
+        if (!gridData || !actionOptions.length) return;
+        renderBulkRows();
+        bulkStatus.classList.add('hidden');
         bulkStatus.textContent = '';
-
-        try {
-            const payload = await fetchTableData(window.tableConfig.dataUrl, { per_page: 100 });
-            bulkVariants = payload.data ?? [];
-            renderBulkRows(bulkVariants);
-            updateBulkQtyHeader(bulkActionSelect.value);
-            showBulkModal();
-        } catch (error) {
-            showToast(error.message || 'Unable to load variants for bulk update.', 'error');
-        }
-    }
-
-    function collectBulkItems(action) {
-        const items = [];
-
-        bulkRowsBody?.querySelectorAll('tr[data-bulk-variant-id]').forEach((row) => {
-            const input = row.querySelector('[data-bulk-qty]');
-            const errorEl = row.querySelector('[data-bulk-error]');
-            const rawValue = input?.value?.trim() ?? '';
-
-            row.classList.remove('bg-red-50');
-            errorEl?.classList.add('hidden');
-            errorEl.textContent = '';
-
-            if (rawValue === '') {
-                return;
-            }
-
-            const numericValue = Number(rawValue);
-
-            if (action === 'adjust') {
-                items.push({
-                    product_variant_id: Number(row.dataset.bulkVariantId),
-                    new_quantity: numericValue,
-                });
-            } else if (numericValue >= 1) {
-                items.push({
-                    product_variant_id: Number(row.dataset.bulkVariantId),
-                    quantity: numericValue,
-                });
-            }
-        });
-
-        return items;
-    }
-
-    function applyBulkResults(results) {
-        let successCount = 0;
-
-        results.forEach((result) => {
-            const row = bulkRowsBody?.querySelector(`tr[data-bulk-variant-id="${result.variant_id}"]`);
-            const errorEl = row?.querySelector('[data-bulk-error]');
-            const input = row?.querySelector('[data-bulk-qty]');
-
-            if (result.success) {
-                successCount++;
-                row?.classList.remove('bg-red-50');
-                errorEl?.classList.add('hidden');
-                errorEl.textContent = '';
-                if (input) {
-                    input.value = '';
-                }
-                if (result.data) {
-                    updateVariantRow(result.data);
-                }
-            } else {
-                row?.classList.add('bg-red-50');
-                if (errorEl) {
-                    errorEl.textContent = result.message || 'Unable to update stock.';
-                    errorEl.classList.remove('hidden');
-                }
-            }
-        });
-
-        return successCount;
-    }
-
-    function openInventoryAction(action, variantId) {
-        document.getElementById('inventory-variant-id').value = variantId;
-        document.getElementById('inventory-action-type').value = action;
-        document.getElementById('inventory-modal-title').textContent = titles[action];
-        document.getElementById('inventory-modal-description').textContent = action === 'adjust'
-            ? 'Set the new total stock quantity for this variant.'
-            : 'Enter the quantity and optional remarks.';
-        document.getElementById('quantity-field').classList.toggle('hidden', action === 'adjust');
-        document.getElementById('new-quantity-field').classList.toggle('hidden', action !== 'adjust');
-        form.reset();
-        document.getElementById('inventory-variant-id').value = variantId;
-        document.getElementById('inventory-action-type').value = action;
-        showModal();
-    }
-
-    tableBody?.addEventListener('click', (event) => {
-        const button = event.target.closest('.inventory-action');
-        if (button) {
-            openInventoryAction(button.dataset.action, button.dataset.variantId);
-        }
+        document.getElementById('bulk-rows-scroll')?.scrollTo(0, 0);
+        bulkModal.classList.remove('hidden');
     });
-
-    document.getElementById('close-inventory-modal')?.addEventListener('click', hideModal);
-    document.getElementById('open-bulk-inventory-modal')?.addEventListener('click', openBulkModal);
-    document.getElementById('close-bulk-inventory-modal')?.addEventListener('click', hideBulkModal);
 
     bulkActionSelect?.addEventListener('change', () => {
-        updateBulkQtyHeader(bulkActionSelect.value);
-        renderBulkRows(bulkVariants);
+        bulkQtyHeader.textContent = bulkActionSelect.value === 'adjust' ? 'New Quantity' : 'Quantity';
     });
 
-    form?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const action = document.getElementById('inventory-action-type').value;
-        const variantId = Number(document.getElementById('inventory-variant-id').value);
-        const remarks = document.getElementById('inventory-remarks').value;
+    function renderBulkRows() {
+        if (!gridData) return;
+        const rows = [];
+        gridData.colors.forEach(color => {
+            gridData.sizes.forEach(size => {
+                const cell = color.cells[size.id];
+                if (!cell) return;
+                rows.push(`
+                    <tr>
+                        <td>${escapeHtml(color.color_name)}</td>
+                        <td>${escapeHtml(size.size_name)}</td>
+                        <td>${cell.current_stock}</td>
+                        <td><input type="number" min="0" class="bulk-qty h-9 w-24 rounded-lg border border-gray-300 px-3 text-[13px] text-gray-900 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200" data-cell-id="${cell.id}"></td>
+                    </tr>
+                `);
+            });
+        });
+        bulkRowsBody.innerHTML = rows.join('');
+        bulkQtyHeader.textContent = bulkActionSelect.value === 'adjust' ? 'New Quantity' : 'Quantity';
+    }
 
-        let payload;
-        if (action === 'adjust') {
-            payload = {
-                product_variant_id: variantId,
-                new_quantity: Number(document.getElementById('inventory-new-quantity').value),
-                remarks,
-            };
-        } else {
-            payload = {
-                product_variant_id: variantId,
-                quantity: Number(document.getElementById('inventory-quantity').value),
-                remarks,
-            };
-        }
+    document.getElementById('bulk-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const action = bulkActionSelect.value;
+        const isAdjust = action === 'adjust';
+        const remarks = document.getElementById('bulk-remarks').value;
 
-        setButtonLoading(submitButton, true, 'Saving...');
+        const items = [];
+        bulkRowsBody.querySelectorAll('.bulk-qty').forEach(input => {
+            const raw = input.value.trim();
+            if (raw === '') return;
+            const qty = Number(raw);
+            if (Number.isNaN(qty)) return;
+            const cellId = Number(input.dataset.cellId);
+            items.push(isAdjust
+                ? { cell_id: cellId, new_quantity: qty }
+                : { cell_id: cellId, quantity: qty });
+        });
 
-        try {
-            const response = await postData(routes[action], payload);
-            table.loadData(table.getCurrentPage());
-            showToast(response.message);
-            hideModal();
-        } catch (error) {
-            showToast(error.message || 'Unable to update stock.', 'error');
-        } finally {
-            setButtonLoading(submitButton, false);
-        }
-    });
-
-    bulkForm?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-
-        const action = bulkActionSelect?.value;
-        const remarks = bulkRemarksInput?.value ?? '';
-        const items = collectBulkItems(action);
-
-        if (items.length === 0) {
-            showToast('Enter a quantity for at least one variant.', 'error');
+        if (!items.length) {
+            bulkStatus.textContent = 'Enter a quantity for at least one row.';
+            bulkStatus.classList.remove('hidden');
             return;
         }
 
-        setButtonLoading(bulkSubmitButton, true, 'Saving...');
+        bulkSubmit.disabled = true;
+        bulkStatus.classList.add('hidden');
 
         try {
-            const response = await postData(window.tableConfig.bulkUrl, {
-                product_id: window.tableConfig.productId,
+            const response = await postData(config.routes.bulk, {
+                product_id: config.productId,
                 action,
-                remarks,
+                remarks: remarks || null,
                 items,
             });
 
-            const successCount = applyBulkResults(response.results ?? []);
-            const total = response.results?.length ?? 0;
-
-            if (successCount === total) {
-                showToast('Bulk update saved.');
-                hideBulkModal();
-            } else {
-                bulkStatus.textContent = `${successCount} of ${total} saved. Fix the highlighted rows.`;
+            const failed = (response.results || []).filter(r => !r.success);
+            if (failed.length) {
+                const messages = failed.map(r => `Cell #${r.cell_id}: ${r.message}`).join('\n');
+                bulkStatus.textContent = `${response.message}\n${messages}`;
                 bulkStatus.classList.remove('hidden');
-                showToast(`${successCount} of ${total} saved. Fix the highlighted rows.`, 'warning');
+            } else {
+                showToast(response.message || 'Bulk update applied.');
+                closeOverlay(bulkModal);
             }
+
+            await loadGrid();
+            window.dispatchEvent(new CustomEvent('inventory:updated'));
         } catch (error) {
-            showToast(error.message || 'Unable to save bulk update.', 'error');
+            bulkStatus.textContent = error.message || 'Bulk update failed.';
+            bulkStatus.classList.remove('hidden');
         } finally {
-            setButtonLoading(bulkSubmitButton, false);
+            bulkSubmit.disabled = false;
         }
     });
+
+    loadGrid();
 });
 </script>
 @endpush

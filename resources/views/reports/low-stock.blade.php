@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${escapeHtml(variant.color)}</td>
                 <td>${escapeHtml(variant.size_name)}</td>
                 <td>${escapeHtml(variant.available_stock)}</td>
-                <td>${escapeHtml(variant.low_stock_threshold)}</td>
+                <td>${escapeHtml(variant.reorder_level)}</td>
                 <td>${renderStockBadge(variant.status, variant.status_label)}</td>
             </tr>
         `).join(''),

@@ -3,23 +3,22 @@
 namespace App\Services;
 
 use App\Models\Product;
-use App\Models\ProductCategory;
 
 class ProductCodeService
 {
-    public function preview(ProductCategory $category): string
+    public function preview(Product $product): string
     {
-        return $this->buildCode($category, $this->nextSequence($category));
+        return $this->buildCode($product, $this->nextSequence($product));
     }
 
-    public function generate(ProductCategory $category): string
+    public function generate(Product $product): string
     {
-        return $this->buildCode($category, $this->nextSequence($category));
+        return $this->buildCode($product, $this->nextSequence($product));
     }
 
-    public function rebuildForCategory(string $existingCode, ProductCategory $category): string
+    public function rebuildForProduct(string $existingCode, Product $product): string
     {
-        $prefix = strtoupper($category->code);
+        $prefix = strtoupper($product->code);
         $suffix = str_contains($existingCode, '-')
             ? substr(strrchr($existingCode, '-'), 1)
             : $existingCode;
@@ -27,16 +26,28 @@ class ProductCodeService
         return "{$prefix}-{$suffix}";
     }
 
-    private function nextSequence(ProductCategory $category): int
+    public function suggestPrefixFromName(string $name): string
     {
-        return Product::query()
-            ->where('product_category_id', $category->id)
-            ->count() + 1;
+        $words = preg_split('/\s+/', trim($name)) ?: [];
+        $initials = '';
+
+        foreach ($words as $word) {
+            $initials .= strtoupper(substr($word, 0, 1));
+        }
+
+        $prefix = preg_replace('/[^A-Z0-9]/', '', $initials) ?: 'PRD';
+
+        return substr($prefix, 0, 16);
     }
 
-    private function buildCode(ProductCategory $category, int $sequence): string
+    private function nextSequence(Product $product): int
     {
-        $prefix = strtoupper($category->code);
+        return $product->colors()->count() + 1;
+    }
+
+    private function buildCode(Product $product, int $sequence): string
+    {
+        $prefix = strtoupper($product->code);
         $number = str_pad((string) $sequence, 3, '0', STR_PAD_LEFT);
 
         return "{$prefix}-{$number}";

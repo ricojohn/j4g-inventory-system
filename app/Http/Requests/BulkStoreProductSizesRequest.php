@@ -4,11 +4,11 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class SyncCategorySizesRequest extends FormRequest
+class BulkStoreProductSizesRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('edit categories') ?? false;
+        return $this->user()?->can('edit products') ?? false;
     }
 
     /**
@@ -17,8 +17,8 @@ class SyncCategorySizesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'size_ids' => ['present', 'array'],
-            'size_ids.*' => ['integer', 'exists:sizes,id'],
+            'size_names' => ['required', 'array', 'min:1'],
+            'size_names.*' => ['required', 'string', 'max:50'],
         ];
     }
 }

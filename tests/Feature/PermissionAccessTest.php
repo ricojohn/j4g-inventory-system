@@ -10,18 +10,18 @@ beforeEach(function () {
 test('viewer cannot stock in', function () {
     $this->actingAs(userWithRole('Viewer'))
         ->postJson(route('inventory.stock-in'), [
-            'product_variant_id' => 1,
+            'cell_id' => 1,
             'quantity' => 1,
         ])
         ->assertForbidden();
 });
 
 test('staff can access inventory stock in route with permission', function () {
-    $variant = createTestVariant();
+    $cell = createTestCell();
 
     $this->actingAs(userWithRole('Staff'))
         ->postJson(route('inventory.stock-in'), [
-            'product_variant_id' => $variant->id,
+            'cell_id' => $cell->id,
             'quantity' => 5,
         ])
         ->assertOk()

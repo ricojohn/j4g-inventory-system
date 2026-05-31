@@ -8,7 +8,7 @@ class AdjustStockRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('adjust stock') ?? false;
     }
 
     /**
@@ -17,8 +17,9 @@ class AdjustStockRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'product_variant_id' => ['required', 'integer', 'exists:product_variants,id'],
+            'cell_id' => ['required', 'integer', 'exists:product_color_sizes,id'],
             'new_quantity' => ['required', 'integer', 'min:0'],
+            'reorder_level' => ['nullable', 'integer', 'min:0'],
             'remarks' => ['required', 'string', 'max:1000'],
         ];
     }

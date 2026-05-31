@@ -4,8 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\TableDataRequest;
 use App\Models\Product;
-use App\Models\ProductCategory;
-use App\Models\ProductVariant;
+use App\Models\ProductColorSize;
 use App\Models\StockMovement;
 use App\Services\InventoryService;
 use App\Support\PaginatedJsonResponse;
@@ -24,7 +23,6 @@ class DashboardController extends Controller
         $stats = $this->computeStats();
 
         return view('dashboard.index', [
-            'totalCategories' => $stats['total_categories'],
             'totalProducts' => $stats['total_products'],
             'totalStock' => $stats['total_stock'],
             'totalReserved' => $stats['total_reserved'],
@@ -49,8 +47,9 @@ class DashboardController extends Controller
         abort_unless($request->user()?->can('view dashboard'), 403);
 
         $movements = StockMovement::query()
-            ->with(['variant.product', 'variant.size', 'user'])
-            ->latest()
+            ->with(['cell.color.product', 'cell.color.color', 'cell.size.size', 'user'])
+            ->whereHas('cell.color.product', fn ($query) => $query->where('status', 'active'))
+            ->latest('created_at')
             ->paginate($request->perPageCount(), ['*'], 'page', $request->pageNumber());
 
         return PaginatedJsonResponse::fromPaginator(
@@ -63,18 +62,20 @@ class DashboardController extends Controller
      */
     private function computeStats(): array
     {
-        $variants = ProductVariant::query()->with('product.category')->get();
+        $cells = ProductColorSize::query()
+            ->whereHas('color.product', fn ($query) => $query->where('status', 'active'))
+            ->get();
 
         $lowStockCount = 0;
         $outOfStockCount = 0;
         $totalStock = 0;
         $totalReserved = 0;
 
-        foreach ($variants as $variant) {
-            $totalStock += $variant->stock_quantity;
-            $totalReserved += $variant->reserved_quantity;
+        foreach ($cells as $cell) {
+            $totalStock += $cell->current_stock;
+            $totalReserved += $cell->reserved_quantity;
 
-            $status = $this->inventoryService->getStockStatus($variant);
+            $status = $this->inventoryService->getStockStatus($cell);
 
             if ($status->value === 'OUT_OF_STOCK') {
                 $outOfStockCount++;
@@ -84,8 +85,7 @@ class DashboardController extends Controller
         }
 
         return [
-            'total_categories' => ProductCategory::query()->count(),
-            'total_products' => Product::query()->count(),
+            'total_products' => Product::query()->where('status', 'active')->count(),
             'total_stock' => $totalStock,
             'total_reserved' => $totalReserved,
             'total_available' => $totalStock - $totalReserved,
@@ -102,12 +102,13 @@ class DashboardController extends Controller
         return [
             'id' => $movement->id,
             'created_at' => $movement->created_at->format('M d, Y H:i'),
-            'product_name' => $movement->variant->product->name,
-            'color' => $movement->variant->product->color,
-            'size_name' => $movement->variant->size->name,
-            'movement_type' => $movement->movement_type->value,
+            'product_name' => $movement->cell->color->product->name,
+            'color_name' => $movement->cell->color->color->name,
+            'color' => $movement->cell->color->color->name,
+            'size_name' => $movement->cell->size->size->name,
+            'movement_type' => $movement->type->value,
             'quantity' => $movement->quantity,
-            'user_name' => $movement->user->name,
+            'user_name' => $movement->user?->name ?? 'System',
         ];
     }
 }

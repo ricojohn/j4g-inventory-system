@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Admin;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -17,14 +17,15 @@ class UpdateSizeRequest extends FormRequest
      */
     public function rules(): array
     {
+        $sizeId = $this->route('size')?->id;
+
         return [
             'name' => [
                 'required',
                 'string',
-                'max:255',
-                Rule::unique('sizes', 'name')->ignore($this->route('size')),
+                'max:50',
+                Rule::unique('sizes', 'name')->ignore($sizeId),
             ],
-            'sort_order' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

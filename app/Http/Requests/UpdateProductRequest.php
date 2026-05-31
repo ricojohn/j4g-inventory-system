@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests;
 
-use App\Rules\SizesBelongToCategory;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateProductRequest extends FormRequest
 {
@@ -17,16 +17,13 @@ class UpdateProductRequest extends FormRequest
      */
     public function rules(): array
     {
-        $categoryId = $this->integer('product_category_id');
+        $productId = $this->route('product')?->id;
 
         return [
-            'product_category_id' => ['required', 'exists:product_categories,id'],
-            'name' => ['required', 'string', 'max:255'],
-            'color' => ['required', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:255', Rule::unique('products', 'name')->ignore($productId)],
+            'code' => ['required', 'string', 'max:16', 'alpha_dash', Rule::unique('products', 'code')->ignore($productId)],
             'description' => ['nullable', 'string'],
-            'status' => ['required', 'in:active,inactive'],
-            'size_ids' => ['required', 'array', 'min:1'],
-            'size_ids.*' => ['integer', 'exists:sizes,id', new SizesBelongToCategory($categoryId)],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
         ];
     }
 }

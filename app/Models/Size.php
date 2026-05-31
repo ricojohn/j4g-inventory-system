@@ -10,24 +10,17 @@ class Size extends Model
 {
     protected $fillable = [
         'name',
-        'sort_order',
     ];
 
-    protected function casts(): array
+    public function productSizes(): HasMany
     {
-        return [
-            'sort_order' => 'integer',
-        ];
+        return $this->hasMany(ProductSize::class);
     }
 
-    public function categories(): BelongsToMany
+    public function products(): BelongsToMany
     {
-        return $this->belongsToMany(ProductCategory::class, 'category_size')
+        return $this->belongsToMany(Product::class, 'product_size')
+            ->withPivot('id', 'sort_order')
             ->withTimestamps();
-    }
-
-    public function variants(): HasMany
-    {
-        return $this->hasMany(ProductVariant::class);
     }
 }

@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\TableDataRequest;
 use App\Models\Product;
-use App\Models\ProductVariant;
+use App\Models\ProductColorSize;
 use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\InventoryService;
@@ -30,7 +30,7 @@ class ReportController extends Controller
 
         return response()->json([
             'success' => true,
-            'products' => Product::query()->orderBy('name')->get(['id', 'name']),
+            'products' => Product::query()->where('status', 'active')->orderBy('name')->get(['id', 'name']),
             'users' => User::query()->orderBy('name')->get(['id', 'name']),
         ]);
     }
@@ -48,15 +48,16 @@ class ReportController extends Controller
         ]);
 
         $movements = StockMovement::query()
-            ->with(['variant.product', 'variant.size', 'user'])
-            ->when($request->filled('movement_type'), fn ($query) => $query->where('movement_type', $request->string('movement_type')))
+            ->with(['cell.color.product', 'cell.color.color', 'cell.size.size', 'user'])
+            ->whereHas('cell.color.product', fn ($query) => $query->where('status', 'active'))
+            ->when($request->filled('movement_type'), fn ($query) => $query->where('type', $request->string('movement_type')))
             ->when($request->filled('product_id'), function ($query) use ($request) {
-                $query->whereHas('variant', fn ($variantQuery) => $variantQuery->where('product_id', $request->integer('product_id')));
+                $query->whereHas('cell.color', fn ($colorQuery) => $colorQuery->where('product_id', $request->integer('product_id')));
             })
             ->when($request->filled('user_id'), fn ($query) => $query->where('created_by', $request->integer('user_id')))
             ->when($request->filled('date_from'), fn ($query) => $query->whereDate('created_at', '>=', $request->string('date_from')))
             ->when($request->filled('date_to'), fn ($query) => $query->whereDate('created_at', '<=', $request->string('date_to')))
-            ->latest()
+            ->latest('created_at')
             ->paginate($request->perPageCount(), ['*'], 'page', $request->pageNumber());
 
         return PaginatedJsonResponse::fromPaginator(
@@ -75,11 +76,11 @@ class ReportController extends Controller
     {
         abort_unless($request->user()?->can('view low stock report'), 403);
 
-        $variants = $this->lowStockQuery($request)
+        $cells = $this->lowStockQuery($request)
             ->paginate($request->perPageCount(), ['*'], 'page', $request->pageNumber());
 
         return PaginatedJsonResponse::fromPaginator(
-            $variants->through(fn (ProductVariant $variant) => $this->formatLowStockVariant($variant))
+            $cells->through(fn (ProductColorSize $cell) => $this->formatLowStockCell($cell))
         );
     }
 
@@ -94,54 +95,54 @@ class ReportController extends Controller
     {
         abort_unless($request->user()?->can('view out of stock report'), 403);
 
-        $variants = $this->outOfStockQuery($request)
+        $cells = $this->outOfStockQuery($request)
             ->paginate($request->perPageCount(), ['*'], 'page', $request->pageNumber());
 
         return PaginatedJsonResponse::fromPaginator(
-            $variants->through(fn (ProductVariant $variant) => $this->formatOutOfStockVariant($variant))
+            $cells->through(fn (ProductColorSize $cell) => $this->formatOutOfStockCell($cell))
         );
     }
 
     /**
-     * @return Builder<ProductVariant>
+     * @return Builder<ProductColorSize>
      */
     private function lowStockQuery(TableDataRequest $request): Builder
     {
-        return ProductVariant::query()
-            ->with(['product.category', 'size'])
-            ->join('products', 'product_variants.product_id', '=', 'products.id')
-            ->join('product_categories', 'products.product_category_id', '=', 'product_categories.id')
-            ->whereRaw('(product_variants.stock_quantity - product_variants.reserved_quantity) > 0')
-            ->whereRaw('(product_variants.stock_quantity - product_variants.reserved_quantity) <= COALESCE(product_categories.low_stock_threshold, 0)')
+        return ProductColorSize::query()
+            ->with(['color.product', 'color.color', 'size.size'])
+            ->whereHas('color.product', fn ($query) => $query->where('status', 'active'))
+            ->where('reorder_level', '>', 0)
+            ->whereRaw('(current_stock - reserved_quantity) > 0')
+            ->whereRaw('(current_stock - reserved_quantity) <= reorder_level')
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = $request->string('search');
                 $query->where(function ($inner) use ($search) {
-                    $inner->where('products.name', 'like', "%{$search}%")
-                        ->orWhere('products.color', 'like', "%{$search}%");
+                    $inner->whereHas('color.color', fn ($colorQuery) => $colorQuery->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('color.product', fn ($productQuery) => $productQuery->where('name', 'like', "%{$search}%"));
                 });
             })
-            ->select('product_variants.*')
-            ->orderBy('products.name');
+            ->join('product_color', 'product_color.id', '=', 'product_color_sizes.product_color_id')
+            ->join('products', 'products.id', '=', 'product_color.product_id')
+            ->orderBy('products.name')
+            ->select('product_color_sizes.*');
     }
 
     /**
-     * @return Builder<ProductVariant>
+     * @return Builder<ProductColorSize>
      */
     private function outOfStockQuery(TableDataRequest $request): Builder
     {
-        return ProductVariant::query()
-            ->with(['product.category', 'size'])
-            ->join('products', 'product_variants.product_id', '=', 'products.id')
-            ->whereRaw('(product_variants.stock_quantity - product_variants.reserved_quantity) <= 0')
+        return ProductColorSize::query()
+            ->with(['color.product', 'color.color', 'size.size'])
+            ->whereHas('color.product', fn ($query) => $query->where('status', 'active'))
+            ->whereRaw('(current_stock - reserved_quantity) <= 0')
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = $request->string('search');
                 $query->where(function ($inner) use ($search) {
-                    $inner->where('products.name', 'like', "%{$search}%")
-                        ->orWhere('products.color', 'like', "%{$search}%");
+                    $inner->whereHas('color.color', fn ($colorQuery) => $colorQuery->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('color.product', fn ($productQuery) => $productQuery->where('name', 'like', "%{$search}%"));
                 });
-            })
-            ->select('product_variants.*')
-            ->orderBy('products.name');
+            });
     }
 
     /**
@@ -152,15 +153,16 @@ class ReportController extends Controller
         return [
             'id' => $movement->id,
             'created_at' => $movement->created_at->format('M d, Y H:i'),
-            'product_name' => $movement->variant->product->name,
-            'size_name' => $movement->variant->size->name,
-            'movement_type' => $movement->movement_type->value,
+            'product_name' => $movement->cell->color->product->name,
+            'color_name' => $movement->cell->color->color->name,
+            'size_name' => $movement->cell->size->size->name,
+            'movement_type' => $movement->type->value,
             'quantity' => $movement->quantity,
             'before_stock' => $movement->before_stock,
             'after_stock' => $movement->after_stock,
             'before_reserved' => $movement->before_reserved,
             'after_reserved' => $movement->after_reserved,
-            'user_name' => $movement->user->name,
+            'user_name' => $movement->user?->name ?? 'System',
             'remarks' => $movement->remarks,
         ];
     }
@@ -168,34 +170,41 @@ class ReportController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function formatLowStockVariant(ProductVariant $variant): array
+    private function formatLowStockCell(ProductColorSize $cell): array
     {
+        $status = $this->inventoryService->getStockStatus($cell);
+
         return [
-            'id' => $variant->id,
-            'product_name' => $variant->product->name,
-            'color' => $variant->product->color,
-            'size_name' => $variant->size->name,
-            'available_stock' => $this->inventoryService->getAvailableStock($variant),
-            'low_stock_threshold' => $variant->product->category->low_stock_threshold,
-            'status' => 'LOW_STOCK',
-            'status_label' => 'LOW STOCK',
+            'id' => $cell->id,
+            'product_name' => $cell->color->product->name,
+            'color_name' => $cell->color->color->name,
+            'color' => $cell->color->color->name,
+            'size_name' => $cell->size->size->name,
+            'current_stock' => $cell->current_stock,
+            'available_stock' => $this->inventoryService->getAvailableStock($cell),
+            'reorder_level' => $cell->reorder_level,
+            'status' => $status->value,
+            'status_label' => $status->label(),
         ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function formatOutOfStockVariant(ProductVariant $variant): array
+    private function formatOutOfStockCell(ProductColorSize $cell): array
     {
+        $status = $this->inventoryService->getStockStatus($cell);
+
         return [
-            'id' => $variant->id,
-            'product_name' => $variant->product->name,
-            'color' => $variant->product->color,
-            'size_name' => $variant->size->name,
-            'stock_quantity' => $variant->stock_quantity,
-            'reserved_quantity' => $variant->reserved_quantity,
-            'status' => 'OUT_OF_STOCK',
-            'status_label' => 'OUT OF STOCK',
+            'id' => $cell->id,
+            'product_name' => $cell->color->product->name,
+            'color_name' => $cell->color->color->name,
+            'color' => $cell->color->color->name,
+            'size_name' => $cell->size->size->name,
+            'current_stock' => $cell->current_stock,
+            'reserved_quantity' => $cell->reserved_quantity,
+            'status' => $status->value,
+            'status_label' => $status->label(),
         ];
     }
 }

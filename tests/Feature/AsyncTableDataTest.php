@@ -1,57 +1,39 @@
 <?php
 
-use App\Models\ProductCategory;
+use App\Enums\MovementType;
 use App\Models\StockMovement;
-use Database\Seeders\ProductCategorySeeder;
 use Database\Seeders\UserSeeder;
 
 beforeEach(function () {
     seedBaseData();
-    (new ProductCategorySeeder)->run();
     (new UserSeeder)->run();
 });
 
-test('categories data endpoint returns paginated json structure', function () {
+test('products data endpoint returns paginated json structure', function () {
+    createTestCell();
+
     $this->actingAs(userWithRole('Manager'))
-        ->getJson(route('categories.data'))
+        ->getJson(route('products.data'))
         ->assertOk()
         ->assertJsonPath('success', true)
         ->assertJsonStructure([
             'data' => [
-                '*' => ['id', 'name', 'code', 'low_stock_threshold', 'status'],
+                '*' => ['id', 'code', 'name', 'status', 'size_count', 'color_count'],
             ],
             'pagination' => ['current_page', 'last_page', 'per_page', 'total'],
         ]);
 });
 
-test('categories data endpoint respects search and per page', function () {
-    ProductCategory::query()->create([
-        'name' => 'Unique Widget Category',
-        'code' => 'WIDGET-UNIQUE',
-        'low_stock_threshold' => 5,
-        'status' => 'active',
-    ]);
+test('products data endpoint respects search and status filter', function () {
+    createTestProduct(['name' => 'Unique Widget Product', 'code' => 'UWP', 'status' => 'inactive']);
 
     $this->actingAs(userWithRole('Manager'))
-        ->getJson(route('categories.data', [
+        ->getJson(route('products.data', [
             'search' => 'Unique Widget',
-            'per_page' => 50,
+            'status' => 'all',
         ]))
         ->assertOk()
-        ->assertJsonPath('pagination.per_page', 50)
-        ->assertJsonCount(1, 'data')
-        ->assertJsonPath('data.0.code', 'WIDGET-UNIQUE');
-});
-
-test('categories show json returns single record for edit', function () {
-    $category = ProductCategory::query()->firstOrFail();
-
-    $this->actingAs(userWithRole('Manager'))
-        ->getJson(route('categories.show-json', $category))
-        ->assertOk()
-        ->assertJsonPath('success', true)
-        ->assertJsonPath('data.id', $category->id)
-        ->assertJsonPath('data.name', $category->name);
+        ->assertJsonPath('data.0.code', 'UWP');
 });
 
 test('viewer cannot access admin roles data endpoint', function () {
@@ -60,36 +42,33 @@ test('viewer cannot access admin roles data endpoint', function () {
         ->assertForbidden();
 });
 
-test('low stock data endpoint paginates without loading all rows', function () {
-    $variant = createTestVariant(stock: 5, reserved: 0);
+test('low stock data endpoint paginates cells', function () {
+    $cell = createTestCell(stock: 3, reserved: 0);
+    $cell->update(['reorder_level' => 5]);
 
     $this->actingAs(userWithRole('Manager'))
         ->getJson(route('reports.low-stock.data', ['per_page' => 25]))
         ->assertOk()
         ->assertJsonPath('success', true)
-        ->assertJsonStructure([
-            'data',
-            'pagination' => ['current_page', 'last_page', 'per_page', 'total'],
-        ])
-        ->assertJsonPath('data.0.id', $variant->id);
+        ->assertJsonPath('data.0.id', $cell->id);
 });
 
-test('out of stock data endpoint returns paginated variants', function () {
-    $variant = createTestVariant(stock: 0, reserved: 0);
+test('out of stock data endpoint returns paginated cells', function () {
+    $cell = createTestCell(stock: 0, reserved: 0);
 
     $this->actingAs(userWithRole('Manager'))
         ->getJson(route('reports.out-of-stock.data'))
         ->assertOk()
-        ->assertJsonPath('data.0.id', $variant->id);
+        ->assertJsonPath('data.0.id', $cell->id);
 });
 
 test('dashboard recent movements data endpoint returns paginated json', function () {
-    $variant = createTestVariant();
+    $cell = createTestCell();
     $user = userWithRole('Staff');
 
     StockMovement::query()->create([
-        'product_variant_id' => $variant->id,
-        'movement_type' => 'IN',
+        'product_color_size_id' => $cell->id,
+        'type' => MovementType::In,
         'quantity' => 5,
         'before_stock' => 0,
         'after_stock' => 5,
@@ -104,22 +83,10 @@ test('dashboard recent movements data endpoint returns paginated json', function
         ->assertOk()
         ->assertJsonStructure([
             'data' => [
-                '*' => ['id', 'created_at', 'product_name', 'size_name', 'movement_type', 'quantity', 'user_name'],
+                '*' => ['id', 'created_at', 'product_name', 'color_name', 'size_name', 'movement_type', 'quantity', 'user_name'],
             ],
             'pagination',
         ]);
-});
-
-test('products data endpoint respects category filter', function () {
-    $variant = createTestVariant();
-    $variant->load('product');
-
-    $this->actingAs(userWithRole('Manager'))
-        ->getJson(route('products.data', [
-            'category_id' => $variant->product->product_category_id,
-        ]))
-        ->assertOk()
-        ->assertJsonPath('data.0.id', $variant->product_id);
 });
 
 test('viewer cannot access admin users data endpoint', function () {

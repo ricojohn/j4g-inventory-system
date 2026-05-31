@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Enums\MovementType;
 use App\Enums\StockStatus;
 use App\Events\StockUpdated;
-use App\Models\ProductVariant;
+use App\Models\ProductColorSize;
 use App\Models\StockMovement;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -14,155 +14,156 @@ use RuntimeException;
 
 class InventoryService
 {
-    public function stockIn(ProductVariant $variant, int $quantity, ?string $remarks = null): ProductVariant
+    public function stockIn(ProductColorSize $cell, int $quantity, ?string $remarks = null): ProductColorSize
     {
-        return $this->applyMovement($variant, function (ProductVariant $lockedVariant) use ($quantity): array {
-            $beforeStock = $lockedVariant->stock_quantity;
-            $lockedVariant->stock_quantity = $beforeStock + $quantity;
+        return $this->applyMovement($cell, function (ProductColorSize $lockedCell) use ($quantity): array {
+            $beforeStock = $lockedCell->current_stock;
+            $lockedCell->current_stock = $beforeStock + $quantity;
 
             return [
-                'movement_type' => MovementType::In,
+                'type' => MovementType::In,
                 'quantity' => $quantity,
                 'before_stock' => $beforeStock,
-                'after_stock' => $lockedVariant->stock_quantity,
-                'before_reserved' => $lockedVariant->reserved_quantity,
-                'after_reserved' => $lockedVariant->reserved_quantity,
+                'after_stock' => $lockedCell->current_stock,
+                'before_reserved' => $lockedCell->reserved_quantity,
+                'after_reserved' => $lockedCell->reserved_quantity,
             ];
         }, $remarks);
     }
 
-    public function stockOut(ProductVariant $variant, int $quantity, ?string $remarks = null): ProductVariant
+    public function stockOut(ProductColorSize $cell, int $quantity, ?string $remarks = null): ProductColorSize
     {
-        return $this->applyMovement($variant, function (ProductVariant $lockedVariant) use ($quantity): array {
-            $available = $this->getAvailableStock($lockedVariant);
+        return $this->applyMovement($cell, function (ProductColorSize $lockedCell) use ($quantity): array {
+            $available = $this->getAvailableStock($lockedCell);
 
             if ($available < $quantity) {
                 throw new RuntimeException('Not enough available stock.');
             }
 
-            $beforeStock = $lockedVariant->stock_quantity;
-            $lockedVariant->stock_quantity = $beforeStock - $quantity;
+            $beforeStock = $lockedCell->current_stock;
+            $lockedCell->current_stock = $beforeStock - $quantity;
 
             return [
-                'movement_type' => MovementType::Out,
+                'type' => MovementType::Out,
                 'quantity' => $quantity,
                 'before_stock' => $beforeStock,
-                'after_stock' => $lockedVariant->stock_quantity,
-                'before_reserved' => $lockedVariant->reserved_quantity,
-                'after_reserved' => $lockedVariant->reserved_quantity,
+                'after_stock' => $lockedCell->current_stock,
+                'before_reserved' => $lockedCell->reserved_quantity,
+                'after_reserved' => $lockedCell->reserved_quantity,
             ];
         }, $remarks);
     }
 
-    public function reserve(ProductVariant $variant, int $quantity, ?string $remarks = null): ProductVariant
+    public function reserve(ProductColorSize $cell, int $quantity, ?string $remarks = null): ProductColorSize
     {
-        return $this->applyMovement($variant, function (ProductVariant $lockedVariant) use ($quantity): array {
-            $available = $this->getAvailableStock($lockedVariant);
+        return $this->applyMovement($cell, function (ProductColorSize $lockedCell) use ($quantity): array {
+            $available = $this->getAvailableStock($lockedCell);
 
             if ($available < $quantity) {
                 throw new RuntimeException('Not enough available stock to reserve.');
             }
 
-            $beforeReserved = $lockedVariant->reserved_quantity;
-            $lockedVariant->reserved_quantity = $beforeReserved + $quantity;
+            $beforeReserved = $lockedCell->reserved_quantity;
+            $lockedCell->reserved_quantity = $beforeReserved + $quantity;
 
             return [
-                'movement_type' => MovementType::Reserve,
+                'type' => MovementType::Reserve,
                 'quantity' => $quantity,
-                'before_stock' => $lockedVariant->stock_quantity,
-                'after_stock' => $lockedVariant->stock_quantity,
+                'before_stock' => $lockedCell->current_stock,
+                'after_stock' => $lockedCell->current_stock,
                 'before_reserved' => $beforeReserved,
-                'after_reserved' => $lockedVariant->reserved_quantity,
+                'after_reserved' => $lockedCell->reserved_quantity,
             ];
         }, $remarks);
     }
 
-    public function release(ProductVariant $variant, int $quantity, ?string $remarks = null): ProductVariant
+    public function release(ProductColorSize $cell, int $quantity, ?string $remarks = null): ProductColorSize
     {
-        return $this->applyMovement($variant, function (ProductVariant $lockedVariant) use ($quantity): array {
-            if ($lockedVariant->reserved_quantity < $quantity) {
+        return $this->applyMovement($cell, function (ProductColorSize $lockedCell) use ($quantity): array {
+            if ($lockedCell->reserved_quantity < $quantity) {
                 throw new RuntimeException('Not enough reserved stock to release.');
             }
 
-            $beforeReserved = $lockedVariant->reserved_quantity;
-            $lockedVariant->reserved_quantity = $beforeReserved - $quantity;
+            $beforeReserved = $lockedCell->reserved_quantity;
+            $lockedCell->reserved_quantity = $beforeReserved - $quantity;
 
             return [
-                'movement_type' => MovementType::Release,
+                'type' => MovementType::Release,
                 'quantity' => $quantity,
-                'before_stock' => $lockedVariant->stock_quantity,
-                'after_stock' => $lockedVariant->stock_quantity,
+                'before_stock' => $lockedCell->current_stock,
+                'after_stock' => $lockedCell->current_stock,
                 'before_reserved' => $beforeReserved,
-                'after_reserved' => $lockedVariant->reserved_quantity,
+                'after_reserved' => $lockedCell->reserved_quantity,
             ];
         }, $remarks);
     }
 
-    public function damage(ProductVariant $variant, int $quantity, ?string $remarks = null): ProductVariant
+    public function damage(ProductColorSize $cell, int $quantity, ?string $remarks = null): ProductColorSize
     {
-        return $this->applyMovement($variant, function (ProductVariant $lockedVariant) use ($quantity): array {
-            $available = $this->getAvailableStock($lockedVariant);
+        return $this->applyMovement($cell, function (ProductColorSize $lockedCell) use ($quantity): array {
+            $available = $this->getAvailableStock($lockedCell);
 
             if ($available < $quantity) {
                 throw new RuntimeException('Not enough available stock to mark as damaged.');
             }
 
-            $beforeStock = $lockedVariant->stock_quantity;
-            $lockedVariant->stock_quantity = $beforeStock - $quantity;
+            $beforeStock = $lockedCell->current_stock;
+            $lockedCell->current_stock = $beforeStock - $quantity;
 
             return [
-                'movement_type' => MovementType::Damaged,
+                'type' => MovementType::Damaged,
                 'quantity' => $quantity,
                 'before_stock' => $beforeStock,
-                'after_stock' => $lockedVariant->stock_quantity,
-                'before_reserved' => $lockedVariant->reserved_quantity,
-                'after_reserved' => $lockedVariant->reserved_quantity,
+                'after_stock' => $lockedCell->current_stock,
+                'before_reserved' => $lockedCell->reserved_quantity,
+                'after_reserved' => $lockedCell->reserved_quantity,
             ];
         }, $remarks);
     }
 
-    public function adjust(ProductVariant $variant, int $newQuantity, string $remarks): ProductVariant
+    public function adjust(ProductColorSize $cell, int $newQuantity, string $remarks, ?int $reorderLevel = null): ProductColorSize
     {
         if ($remarks === '') {
             throw new InvalidArgumentException('Remarks are required for stock adjustment.');
         }
 
-        return $this->applyMovement($variant, function (ProductVariant $lockedVariant) use ($newQuantity): array {
-            if ($newQuantity < $lockedVariant->reserved_quantity) {
+        return $this->applyMovement($cell, function (ProductColorSize $lockedCell) use ($newQuantity, $reorderLevel): array {
+            if ($newQuantity < $lockedCell->reserved_quantity) {
                 throw new RuntimeException('Adjusted stock cannot be less than reserved quantity.');
             }
 
-            $beforeStock = $lockedVariant->stock_quantity;
-            $lockedVariant->stock_quantity = $newQuantity;
+            if ($reorderLevel !== null) {
+                $lockedCell->reorder_level = $reorderLevel;
+            }
+
+            $beforeStock = $lockedCell->current_stock;
+            $lockedCell->current_stock = $newQuantity;
 
             return [
-                'movement_type' => MovementType::Adjustment,
+                'type' => MovementType::Adjustment,
                 'quantity' => abs($newQuantity - $beforeStock),
                 'before_stock' => $beforeStock,
-                'after_stock' => $lockedVariant->stock_quantity,
-                'before_reserved' => $lockedVariant->reserved_quantity,
-                'after_reserved' => $lockedVariant->reserved_quantity,
+                'after_stock' => $lockedCell->current_stock,
+                'before_reserved' => $lockedCell->reserved_quantity,
+                'after_reserved' => $lockedCell->reserved_quantity,
             ];
         }, $remarks);
     }
 
-    public function getAvailableStock(ProductVariant $variant): int
+    public function getAvailableStock(ProductColorSize $cell): int
     {
-        return $variant->stock_quantity - $variant->reserved_quantity;
+        return $cell->current_stock - $cell->reserved_quantity;
     }
 
-    public function getStockStatus(ProductVariant $variant): StockStatus
+    public function getStockStatus(ProductColorSize $cell): StockStatus
     {
-        $available = $this->getAvailableStock($variant);
+        $available = $this->getAvailableStock($cell);
 
         if ($available <= 0) {
             return StockStatus::OutOfStock;
         }
 
-        $variant->loadMissing('product.category');
-        $threshold = $variant->product->category->low_stock_threshold ?? 0;
-
-        if ($available <= $threshold) {
+        if ($cell->reorder_level > 0 && $available <= $cell->reorder_level) {
             return StockStatus::LowStock;
         }
 
@@ -172,17 +173,22 @@ class InventoryService
     /**
      * @return array<string, mixed>
      */
-    public function formatVariantForDisplay(ProductVariant $variant): array
+    public function formatCellForDisplay(ProductColorSize $cell): array
     {
-        $variant->loadMissing(['product', 'size']);
-        $status = $this->getStockStatus($variant);
+        $cell->loadMissing(['color.color', 'size.size']);
+        $status = $this->getStockStatus($cell);
 
         return [
-            'id' => $variant->id,
-            'size_name' => $variant->size->name,
-            'stock_quantity' => $variant->stock_quantity,
-            'reserved_quantity' => $variant->reserved_quantity,
-            'available_stock' => $this->getAvailableStock($variant),
+            'id' => $cell->id,
+            'color_id' => $cell->product_color_id,
+            'size_id' => $cell->product_size_id,
+            'color_name' => $cell->color->color->name,
+            'color_item_code' => $cell->color->item_code,
+            'size_name' => $cell->size->size->name,
+            'current_stock' => $cell->current_stock,
+            'reserved_quantity' => $cell->reserved_quantity,
+            'available_stock' => $this->getAvailableStock($cell),
+            'reorder_level' => $cell->reorder_level,
             'status' => $status->value,
             'status_label' => $status->label(),
         ];
@@ -191,54 +197,61 @@ class InventoryService
     /**
      * @return array<string, mixed>
      */
-    public function formatVariantResponse(ProductVariant $variant): array
+    public function formatCellResponse(ProductColorSize $cell): array
     {
         return [
-            'variant_id' => $variant->id,
-            'product_id' => $variant->product_id,
-            'stock_quantity' => $variant->stock_quantity,
-            'reserved_quantity' => $variant->reserved_quantity,
-            'available_stock' => $this->getAvailableStock($variant),
-            'status' => $this->getStockStatus($variant)->value,
+            'cell_id' => $cell->id,
+            'product_id' => $cell->color->product_id,
+            'current_stock' => $cell->current_stock,
+            'reserved_quantity' => $cell->reserved_quantity,
+            'available_stock' => $this->getAvailableStock($cell),
+            'reorder_level' => $cell->reorder_level,
+            'status' => $this->getStockStatus($cell)->value,
         ];
     }
 
     /**
-     * @param  callable(ProductVariant): array<string, mixed>  $operation
+     * @param  callable(ProductColorSize): array<string, mixed>  $operation
      */
-    private function applyMovement(ProductVariant $variant, callable $operation, ?string $remarks = null): ProductVariant
+    private function applyMovement(ProductColorSize $cell, callable $operation, ?string $remarks = null): ProductColorSize
     {
-        return DB::transaction(function () use ($variant, $operation, $remarks) {
-            $lockedVariant = ProductVariant::query()
-                ->whereKey($variant->id)
+        return DB::transaction(function () use ($cell, $operation, $remarks) {
+            $lockedCell = ProductColorSize::query()
+                ->whereKey($cell->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $movementData = $operation($lockedVariant);
-            $lockedVariant->save();
+            $movementData = $operation($lockedCell);
+            $lockedCell->save();
 
-            $lockedVariant->load(['product', 'size']);
+            $lockedCell->load(['color.product', 'color.color', 'size.size']);
 
             $movement = StockMovement::query()->create([
                 ...$movementData,
-                'product_variant_id' => $lockedVariant->id,
+                'product_color_size_id' => $lockedCell->id,
                 'remarks' => $remarks,
                 'created_by' => Auth::id(),
             ]);
 
             $payload = [
-                'variant_id' => $lockedVariant->id,
-                'product_id' => $lockedVariant->product_id,
-                'stock_quantity' => $lockedVariant->stock_quantity,
-                'reserved_quantity' => $lockedVariant->reserved_quantity,
-                'available_stock' => $this->getAvailableStock($lockedVariant),
-                'status' => $this->getStockStatus($lockedVariant)->value,
+                'cell_id' => $lockedCell->id,
+                'variant_id' => $lockedCell->id,
+                'product_id' => $lockedCell->color->product_id,
+                'product_code' => $lockedCell->color->product->code,
+                'product_name' => $lockedCell->color->product->name,
+                'color_name' => $lockedCell->color->color->name,
+                'color' => $lockedCell->color->color->name,
+                'color_item_code' => $lockedCell->color->item_code,
+                'size_name' => $lockedCell->size->size->name,
+                'current_stock' => $lockedCell->current_stock,
+                'stock_quantity' => $lockedCell->current_stock,
+                'reserved_quantity' => $lockedCell->reserved_quantity,
+                'available_stock' => $this->getAvailableStock($lockedCell),
+                'reorder_level' => $lockedCell->reorder_level,
+                'status' => $this->getStockStatus($lockedCell)->value,
                 'movement_id' => $movement->id,
-                'movement_type' => $movementData['movement_type']->value,
+                'movement_type' => $movementData['type']->value,
                 'quantity' => $movementData['quantity'],
-                'product_name' => $lockedVariant->product->name,
-                'color' => $lockedVariant->product->color,
-                'size_name' => $lockedVariant->size->name,
                 'user_id' => Auth::id(),
                 'user_name' => Auth::user()?->name ?? 'System',
                 'created_at_human' => now()->format('M d, Y H:i'),
@@ -250,7 +263,7 @@ class InventoryService
                 broadcast(new StockUpdated($payload));
             });
 
-            return $lockedVariant->fresh(['product.category', 'size']);
+            return $lockedCell->fresh(['color.product', 'color.color', 'size.size']);
         });
     }
 }

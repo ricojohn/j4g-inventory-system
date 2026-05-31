@@ -1,0 +1,31 @@
+---
+description: Conventions for the `product_colors.color_code` field and the Add/Edit Color UI
+globs: app/Models/ProductColor.php,app/Http/Requests/*ProductColor*.php,app/Http/Controllers/ProductColorController.php,resources/views/products/**/*.blade.php,database/migrations/*product_colors*.php,database/seeders/ProductSeeder.php,tests/Feature/*Color*
+alwaysApply: false
+---
+
+# Color fields
+
+`product_colors.color_code` is a **plain text** field, not a hex value.
+
+## Rules
+
+- DB column: `string nullable`, no length-bound regex, max 50 chars.
+- Form requests (`StoreProductColorRequest`, `UpdateProductColorRequest`, `BulkStoreProductColorsRequest`): validate as `nullable|string|max:50`. Do NOT add `regex:/^#[0-9a-fA-F]{6}$/i` or any hex constraint.
+- UI inputs: render as a regular `<x-ui.input type="text">`, not `<input type="color">`. Do NOT render a swatch (`background-color: var(--code)`) based on its value.
+- Suggestions endpoint may pre-fill the most recently used `color_code` for a picked `color_name`, but the value is treated as opaque text — never parsed as a hex.
+- Seeders may leave `color_code` as `null` for the initial 7 products.
+
+## Why
+
+A color picker is a planned future enhancement. Until then, users may want to type things that are not hex (Pantone code, brand label, "see swatch book #3", etc.). Locking the field to hex would force a schema/migration change later and break user data already entered.
+
+## When the color picker is added
+
+When the user is ready for the picker upgrade:
+
+1. Decide format (hex `#RRGGBB`, RGB string, named CSS color, etc.).
+2. Add an opt-in validation rule behind a config flag, e.g. `config('inventory.color_code_format')`.
+3. Backfill / normalize existing rows in a one-off migration.
+4. Then — and only then — render the swatch in edit + inventory views.
+5. Update this rule.

@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${escapeHtml(variant.product_name)}</td>
                 <td>${escapeHtml(variant.color)}</td>
                 <td>${escapeHtml(variant.size_name)}</td>
-                <td>${escapeHtml(variant.stock_quantity)}</td>
+                <td>${escapeHtml(variant.current_stock)}</td>
                 <td>${escapeHtml(variant.reserved_quantity)}</td>
                 <td>${renderStockBadge(variant.status, variant.status_label)}</td>
             </tr>

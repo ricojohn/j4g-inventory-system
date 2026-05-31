@@ -8,9 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StockMovement extends Model
 {
+    public $timestamps = false;
+
     protected $fillable = [
-        'product_variant_id',
-        'movement_type',
+        'product_color_size_id',
+        'type',
         'quantity',
         'before_stock',
         'after_stock',
@@ -18,23 +20,32 @@ class StockMovement extends Model
         'after_reserved',
         'remarks',
         'created_by',
+        'created_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'movement_type' => MovementType::class,
+            'type' => MovementType::class,
             'quantity' => 'integer',
             'before_stock' => 'integer',
             'after_stock' => 'integer',
             'before_reserved' => 'integer',
             'after_reserved' => 'integer',
+            'created_at' => 'datetime',
         ];
     }
 
-    public function variant(): BelongsTo
+    protected static function booted(): void
     {
-        return $this->belongsTo(ProductVariant::class, 'product_variant_id');
+        static::creating(function (StockMovement $movement): void {
+            $movement->created_at = $movement->created_at ?? now();
+        });
+    }
+
+    public function cell(): BelongsTo
+    {
+        return $this->belongsTo(ProductColorSize::class, 'product_color_size_id');
     }
 
     public function user(): BelongsTo

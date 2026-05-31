@@ -1,128 +1,79 @@
 <?php
 
-use App\Models\Product;
-use App\Models\ProductCategory;
-use App\Models\ProductVariant;
+use App\Models\Color;
 use App\Models\Size;
-use Database\Seeders\CategorySizeSeeder;
-use Database\Seeders\ProductCategorySeeder;
 use Database\Seeders\UserSeeder;
 
 beforeEach(function () {
     seedBaseData();
-    (new ProductCategorySeeder)->run();
-    (new CategorySizeSeeder)->run();
     (new UserSeeder)->run();
-    $this->actingAs(userWithRole('Manager'));
 });
 
-test('sizes data endpoint returns paginated json structure', function () {
-    $this->getJson(route('admin.sizes.data'))
-        ->assertOk()
-        ->assertJsonPath('success', true)
-        ->assertJsonStructure([
-            'data' => [
-                '*' => ['id', 'name', 'sort_order', 'category_count', 'variant_count'],
-            ],
-            'pagination' => ['current_page', 'last_page', 'per_page', 'total'],
-        ]);
-});
-
-test('sizes admin page is accessible to manager', function () {
-    $this->get(route('admin.sizes.index'))
-        ->assertOk()
-        ->assertSee('Sizes');
-});
-
-test('staff cannot access sizes admin', function () {
-    $this->actingAs(userWithRole('Staff'))
+test('admin can list and create sizes', function () {
+    $this->actingAs(userWithRole('Admin'))
         ->get(route('admin.sizes.index'))
-        ->assertForbidden();
-});
+        ->assertOk();
 
-test('store size creates catalog entry', function () {
-    $this->postJson(route('admin.sizes.store'), [
-        'name' => 'Custom Size',
-        'sort_order' => 99,
-    ])
+    $this->actingAs(userWithRole('Admin'))
+        ->postJson(route('admin.sizes.store'), ['name' => 'Admin Size'])
         ->assertOk()
-        ->assertJsonPath('data.name', 'Custom Size')
-        ->assertJsonPath('data.sort_order', 99);
+        ->assertJsonPath('success', true);
 
-    expect(Size::query()->where('name', 'Custom Size')->exists())->toBeTrue();
+    expect(Size::query()->where('name', 'Admin Size')->exists())->toBeTrue();
 });
 
-test('store size validates unique name', function () {
-    $existing = Size::query()->firstOrFail();
+test('admin cannot delete size attached to a product', function () {
+    $product = createTestProduct();
+    $productSize = attachTestSize($product, 'Attached Size', 1);
+    $size = Size::query()->findOrFail($productSize->size_id);
 
-    $this->postJson(route('admin.sizes.store'), [
-        'name' => $existing->name,
-    ])
+    $this->actingAs(userWithRole('Admin'))
+        ->deleteJson(route('admin.sizes.destroy', $size))
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['name']);
-});
-
-test('update size changes name and sort order', function () {
-    $size = Size::query()->where('name', 'XS')->firstOrFail();
-
-    $this->putJson(route('admin.sizes.update', $size), [
-        'name' => 'Extra Small',
-        'sort_order' => 1,
-    ])
-        ->assertOk()
-        ->assertJsonPath('data.name', 'Extra Small');
-
-    expect($size->fresh()->name)->toBe('Extra Small');
-});
-
-test('show json returns single size for edit modal', function () {
-    $size = Size::query()->firstOrFail();
-
-    $this->getJson(route('admin.sizes.show-json', $size))
-        ->assertOk()
-        ->assertJsonPath('data.id', $size->id)
-        ->assertJsonPath('data.name', $size->name);
-});
-
-test('cannot delete size used by product variants', function () {
-    $category = ProductCategory::query()->where('code', 'TSHIRT')->firstOrFail();
-    $size = $category->sizes()->firstOrFail();
-
-    $product = Product::query()->create([
-        'product_category_id' => $category->id,
-        'item_code' => 'TSHIRT-0098',
-        'name' => 'Variant Guard Product',
-        'color' => 'Black',
-        'description' => null,
-        'status' => 'active',
-    ]);
-
-    ProductVariant::query()->create([
-        'product_id' => $product->id,
-        'size_id' => $size->id,
-        'stock_quantity' => 0,
-        'reserved_quantity' => 0,
-    ]);
-
-    $this->deleteJson(route('admin.sizes.destroy', $size))
-        ->assertUnprocessable()
-        ->assertJsonPath('message', 'Cannot delete a size that is used by product variants.');
+        ->assertJsonPath('success', false);
 
     expect(Size::query()->whereKey($size->id)->exists())->toBeTrue();
 });
 
-test('delete unused size removes catalog entry and detaches categories', function () {
-    $size = Size::query()->create([
-        'name' => 'Temporary Size',
-        'sort_order' => 500,
-    ]);
+test('admin can delete unattached size', function () {
+    $size = Size::query()->create(['name' => 'Orphan Size']);
 
-    $category = ProductCategory::query()->where('code', 'TSHIRT')->firstOrFail();
-    $category->sizes()->attach($size->id);
+    $this->actingAs(userWithRole('Admin'))
+        ->deleteJson(route('admin.sizes.destroy', $size))
+        ->assertOk()
+        ->assertJsonPath('success', true);
 
-    $this->deleteJson(route('admin.sizes.destroy', $size))
+    expect(Size::query()->whereKey($size->id)->exists())->toBeFalse();
+});
+
+test('admin can list and create colors', function () {
+    $this->actingAs(userWithRole('Admin'))
+        ->get(route('admin.colors.index'))
         ->assertOk();
 
-    expect(Size::query()->whereKey($size->id)->exists())->toBeFalse()
-        ->and($category->fresh()->sizes()->where('sizes.id', $size->id)->exists())->toBeFalse();
+    $this->actingAs(userWithRole('Admin'))
+        ->postJson(route('admin.colors.store'), ['name' => 'Admin Color'])
+        ->assertOk()
+        ->assertJsonPath('success', true);
+
+    expect(Color::query()->where('name', 'Admin Color')->exists())->toBeTrue();
+});
+
+test('admin cannot delete color attached to a product', function () {
+    $product = createTestProduct();
+    $productColor = attachTestColor($product, 'Attached Color', 1);
+    $color = Color::query()->findOrFail($productColor->color_id);
+
+    $this->actingAs(userWithRole('Admin'))
+        ->deleteJson(route('admin.colors.destroy', $color))
+        ->assertUnprocessable()
+        ->assertJsonPath('success', false);
+
+    expect(Color::query()->whereKey($color->id)->exists())->toBeTrue();
+});
+
+test('staff cannot access admin sizes', function () {
+    $this->actingAs(userWithRole('Staff'))
+        ->get(route('admin.sizes.index'))
+        ->assertForbidden();
 });

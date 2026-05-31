@@ -1,13 +1,15 @@
 <?php
 
+use App\Http\Controllers\Admin\ColorController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SizeController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryController;
-use App\Http\Controllers\ProductCategoryController;
+use App\Http\Controllers\ProductColorController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductSizeController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
@@ -37,79 +39,115 @@ Route::middleware('auth')->group(function () {
         ->middleware('permission:view dashboard')
         ->name('dashboard');
 
-    Route::middleware('permission:view categories')->group(function () {
-        Route::get('/categories/data', [ProductCategoryController::class, 'data'])->name('categories.data');
-        Route::get('/categories', [ProductCategoryController::class, 'index'])->name('categories.index');
-    });
-    Route::get('/categories/{category}/json', [ProductCategoryController::class, 'showJson'])
-        ->middleware('permission:edit categories')
-        ->name('categories.show-json');
-    Route::post('/categories', [ProductCategoryController::class, 'store'])
-        ->middleware('permission:create categories')
-        ->name('categories.store');
-    Route::put('/categories/{category}', [ProductCategoryController::class, 'update'])
-        ->middleware('permission:edit categories')
-        ->name('categories.update');
-    Route::delete('/categories/{category}', [ProductCategoryController::class, 'destroy'])
-        ->middleware('permission:delete categories')
-        ->name('categories.destroy');
-    Route::get('/categories/{category}/sizes', [ProductCategoryController::class, 'sizes'])
-        ->middleware('permission:edit categories')
-        ->name('categories.sizes');
-    Route::put('/categories/{category}/sizes', [ProductCategoryController::class, 'syncSizes'])
-        ->middleware('permission:edit categories')
-        ->name('categories.sizes.sync');
-    Route::get('/categories/{category}/variant-options', [ProductCategoryController::class, 'variantOptions'])
-        ->middleware('permission:view products')
-        ->name('categories.variant-options');
-
     Route::middleware('permission:view products')->group(function () {
         Route::get('/products/data', [ProductController::class, 'data'])->name('products.data');
         Route::get('/products', [ProductController::class, 'index'])->name('products.index');
     });
+
     Route::get('/products/create', [ProductController::class, 'create'])
         ->middleware('permission:create products')
         ->name('products.create');
-    Route::get('/products/preview-item-code', [ProductController::class, 'previewItemCode'])
+
+    Route::get('/products/preview-code', [ProductController::class, 'previewCode'])
         ->middleware('permission:create products')
-        ->name('products.preview-item-code');
+        ->name('products.preview-code');
+
     Route::post('/products', [ProductController::class, 'store'])
         ->middleware('permission:create products')
         ->name('products.store');
-    Route::get('/products/{product}/inventory/data', [ProductController::class, 'inventoryData'])
-        ->middleware('permission:view inventory')
-        ->name('products.inventory.data');
-    Route::get('/products/{product}/inventory', [ProductController::class, 'manageInventory'])
-        ->middleware('permission:view inventory')
-        ->name('products.inventory');
+
     Route::get('/products/{product}/edit', [ProductController::class, 'edit'])
         ->middleware('permission:edit products')
         ->name('products.edit');
+
     Route::put('/products/{product}', [ProductController::class, 'update'])
         ->middleware('permission:edit products')
         ->name('products.update');
+
     Route::delete('/products/{product}', [ProductController::class, 'destroy'])
         ->middleware('permission:delete products')
         ->name('products.destroy');
 
+    Route::get('/products/sizes/suggestions', [ProductSizeController::class, 'suggestions'])
+        ->middleware('permission:edit products')
+        ->name('products.sizes.suggestions');
+
+    Route::get('/products/{product}/sizes/data', [ProductSizeController::class, 'data'])
+        ->middleware('permission:edit products')
+        ->name('products.sizes.data');
+
+    Route::post('/products/{product}/sizes', [ProductSizeController::class, 'store'])
+        ->middleware('permission:edit products')
+        ->name('products.sizes.store');
+
+    Route::post('/products/{product}/sizes/bulk', [ProductSizeController::class, 'storeBulk'])
+        ->middleware('permission:edit products')
+        ->name('products.sizes.bulk');
+
+    Route::put('/products/{product}/sizes/{size}', [ProductSizeController::class, 'update'])
+        ->middleware('permission:edit products')
+        ->name('products.sizes.update');
+
+    Route::delete('/products/{product}/sizes/{size}', [ProductSizeController::class, 'destroy'])
+        ->middleware('permission:edit products')
+        ->name('products.sizes.destroy');
+
+    Route::get('/products/colors/suggestions', [ProductColorController::class, 'suggestions'])
+        ->middleware('permission:edit products')
+        ->name('products.colors.suggestions');
+
+    Route::get('/products/{product}/colors/data', [ProductColorController::class, 'data'])
+        ->middleware('permission:edit products')
+        ->name('products.colors.data');
+
+    Route::post('/products/{product}/colors', [ProductColorController::class, 'store'])
+        ->middleware('permission:edit products')
+        ->name('products.colors.store');
+
+    Route::post('/products/{product}/colors/bulk', [ProductColorController::class, 'storeBulk'])
+        ->middleware('permission:edit products')
+        ->name('products.colors.bulk');
+
+    Route::put('/products/{product}/colors/{color}', [ProductColorController::class, 'update'])
+        ->middleware('permission:edit products')
+        ->name('products.colors.update');
+
+    Route::delete('/products/{product}/colors/{color}', [ProductColorController::class, 'destroy'])
+        ->middleware('permission:edit products')
+        ->name('products.colors.destroy');
+
+    Route::get('/products/{product}/inventory/data', [ProductController::class, 'inventoryData'])
+        ->middleware('permission:view inventory')
+        ->name('products.inventory.data');
+
+    Route::get('/products/{product}/inventory', [ProductController::class, 'manageInventory'])
+        ->middleware('permission:view inventory')
+        ->name('products.inventory');
+
     Route::post('/inventory/stock-in', [InventoryController::class, 'stockIn'])
         ->middleware('permission:stock in')
         ->name('inventory.stock-in');
+
     Route::post('/inventory/stock-out', [InventoryController::class, 'stockOut'])
         ->middleware('permission:stock out')
         ->name('inventory.stock-out');
+
     Route::post('/inventory/reserve', [InventoryController::class, 'reserve'])
         ->middleware('permission:reserve stock')
         ->name('inventory.reserve');
+
     Route::post('/inventory/release', [InventoryController::class, 'release'])
         ->middleware('permission:release stock')
         ->name('inventory.release');
+
     Route::post('/inventory/damage', [InventoryController::class, 'damage'])
         ->middleware('permission:damage stock')
         ->name('inventory.damage');
+
     Route::post('/inventory/adjust', [InventoryController::class, 'adjust'])
         ->middleware('permission:adjust stock')
         ->name('inventory.adjust');
+
     Route::post('/inventory/bulk', [InventoryController::class, 'bulk'])
         ->middleware('permission:view inventory')
         ->name('inventory.bulk');
@@ -117,21 +155,27 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/stock-history/filter-options', [ReportController::class, 'stockHistoryFilterOptions'])
         ->middleware('permission:view stock history')
         ->name('reports.stock-history.filter-options');
+
     Route::get('/reports/stock-history/data', [ReportController::class, 'stockHistoryData'])
         ->middleware('permission:view stock history')
         ->name('reports.stock-history.data');
+
     Route::get('/reports/stock-history', [ReportController::class, 'stockHistory'])
         ->middleware('permission:view stock history')
         ->name('reports.stock-history');
+
     Route::get('/reports/low-stock/data', [ReportController::class, 'lowStockData'])
         ->middleware('permission:view low stock report')
         ->name('reports.low-stock.data');
+
     Route::get('/reports/low-stock', [ReportController::class, 'lowStock'])
         ->middleware('permission:view low stock report')
         ->name('reports.low-stock');
+
     Route::get('/reports/out-of-stock/data', [ReportController::class, 'outOfStockData'])
         ->middleware('permission:view out of stock report')
         ->name('reports.out-of-stock.data');
+
     Route::get('/reports/out-of-stock', [ReportController::class, 'outOfStock'])
         ->middleware('permission:view out of stock report')
         ->name('reports.out-of-stock');
@@ -157,9 +201,16 @@ Route::middleware('auth')->group(function () {
             Route::get('/sizes/data', [SizeController::class, 'data'])->name('sizes.data');
             Route::get('/sizes', [SizeController::class, 'index'])->name('sizes.index');
             Route::post('/sizes', [SizeController::class, 'store'])->name('sizes.store');
-            Route::get('/sizes/{size}/json', [SizeController::class, 'showJson'])->name('sizes.show-json');
             Route::put('/sizes/{size}', [SizeController::class, 'update'])->name('sizes.update');
             Route::delete('/sizes/{size}', [SizeController::class, 'destroy'])->name('sizes.destroy');
+        });
+
+        Route::middleware('permission:manage colors')->group(function () {
+            Route::get('/colors/data', [ColorController::class, 'data'])->name('colors.data');
+            Route::get('/colors', [ColorController::class, 'index'])->name('colors.index');
+            Route::post('/colors', [ColorController::class, 'store'])->name('colors.store');
+            Route::put('/colors/{color}', [ColorController::class, 'update'])->name('colors.update');
+            Route::delete('/colors/{color}', [ColorController::class, 'destroy'])->name('colors.destroy');
         });
     });
 });
