@@ -1,0 +1,57 @@
+---
+description: Async table data loading patterns for list pages and JSON endpoints
+globs: app/Http/Controllers/**/*.php,resources/views/**/*.blade.php,resources/js/data-table.js,routes/web.php,tests/Feature/*Async*
+alwaysApply: false
+---
+
+# Async Table Data Loading
+
+List pages must not preload paginated collections into Blade. Fetch table rows via dedicated `/data` JSON endpoints and render client-side.
+
+See also: [shopify-admin-ui.mdc](shopify-admin-ui.mdc) for page shell and card layout.
+
+## Backend
+
+- Index actions return **shell only** (layout, permissions, small filter lists) — no `@foreach` table data
+- Register **`GET /resource/data` routes before** `{model}` parameterized routes
+- Use `TableDataRequest` for `page`, `per_page` (25/50/100, default 25), and optional `search`
+- Return paginated JSON via `PaginatedJsonResponse::fromPaginator()`
+- Modal/edit payloads: fetch single records by ID (`GET /categories/{id}/json`) — never embed `@json($model)` in `data-*` attributes
+
+```php
+public function data(TableDataRequest $request): JsonResponse
+{
+    $this->authorize('viewAny', ProductCategory::class);
+
+    $paginator = ProductCategory::query()
+        ->when($request->filled('search'), /* ... */)
+        ->paginate($request->perPageCount(), ['*'], 'page', $request->pageNumber());
+
+    return PaginatedJsonResponse::fromPaginator(
+        $paginator->through(fn ($row) => $this->formatRow($row))
+    );
+}
+```
+
+## Frontend
+
+- Use `resources/js/data-table.js` utilities: `fetchTableData`, `showTableLoading`, `showTableEmpty`, `showTableError`, `renderPagination`, `initAsyncTable`, `debounce`
+- Table shell: `<x-ui.async-table>` with empty `<tbody>` and `#table-pagination`
+- Pass `window.tableConfig` from Blade with `dataUrl` and `permissions` (once per page, not per row)
+- Search: debounced fetch — no full-page GET form submit for table filtering
+- After create/update/delete: reload current page via `table.loadData(table.getCurrentPage())` — no `window.location.reload()`
+
+## Do NOT
+
+- Blade `@foreach` for large paginated tables
+- Server-rendered `$collection->links()` on migrated pages
+- Preload entire tables for reports (use query conditions + pagination)
+- Embed full model JSON in HTML data attributes
+
+## JSON shape
+
+Keep payloads flat and UI-ready. Include `permissions` once in Blade config, not in each row.
+
+## Tests
+
+Feature tests must assert JSON structure, search/filter params, `per_page`, and 403 for unauthorized roles on `/data` endpoints.

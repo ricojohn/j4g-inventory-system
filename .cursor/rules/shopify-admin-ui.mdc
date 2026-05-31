@@ -1,0 +1,85 @@
+---
+description: Shopify-style compact operational UI for J4G Inventory Blade views
+globs: resources/views/**/*.blade.php,resources/css/app.css,resources/js/app.js
+alwaysApply: false
+---
+
+# Shopify Admin UI (J4G Inventory)
+
+Target feel: Shopify Admin, Stripe Dashboard, GitHub, Linear — compact, calm, table-first, not colorful.
+
+See [data-loading.mdc](data-loading.mdc) for async table patterns.
+
+## App shell
+
+- **Light sidebar**: `w-60 bg-neutral-100 border-gray-200`, links `text-[13px] h-9`, active `bg-white font-medium shadow-sm`
+- **Slim top bar**: `h-12 bg-white border-b` — user + logout only
+- **Content canvas**: `bg-gray-50`, full width `w-full px-4 md:px-6 lg:px-6` — no `max-w-7xl mx-auto`
+- **Font**: Inter, base `text-[13px]`
+
+## Page structure
+
+```blade
+<x-ui.page-header title="Categories">
+    <x-slot:actions>
+        <x-ui.button>Add Category</x-ui.button>
+    </x-slot:actions>
+</x-ui.page-header>
+
+<x-ui.page-card>
+    <x-slot:toolbar>...</x-slot:toolbar>
+    <x-ui.async-table>...</x-ui.async-table>
+</x-ui.page-card>
+```
+
+- Page title: `text-xl font-semibold`, header `mb-3`
+- Primary CTA: top-right in `page-header` only — never full-width in toolbars
+
+## Panels & tables
+
+- Panel: `rounded-xl border border-gray-200 bg-white shadow-sm`
+- Toolbar: `px-3 py-2 border-b flex items-center gap-2`
+- Table: `ui-table` — header `text-[12px] text-gray-500 bg-gray-50`, cells `px-3 py-2 text-[13px]`, row hover `bg-gray-50`
+- Target row height: 40–44px — avoid `px-6 py-5`
+
+## Buttons
+
+- Primary: `h-9 px-3 text-[13px] bg-slate-900 hover:bg-slate-800`
+- Secondary: `h-9 border bg-white hover:bg-gray-50`
+- Table actions: `ui-row-action` or `ui-row-more` dropdown — prefer Edit + More over many inline links
+- Destructive: `ui-row-action-danger` or inside More dropdown with confirm
+
+## Badges & status
+
+- `text-[11px] px-2 py-0.5 rounded-full` — subtle green/amber/red/blue/gray
+- Use `<x-ui.status-pill>` or `<x-ui.badge>` — never plain text
+
+## Forms & modals
+
+- Inputs: `h-9 text-[13px]`, labels `text-xs font-medium`
+- Modal: `ui-modal-panel`, `ui-modal-header/body/footer` with `border-b` / `border-t`, `rounded-xl`, `max-w-md` or `max-w-lg`
+- Form spacing: `space-y-4`; two columns on desktop where appropriate
+
+## Dashboard
+
+- Compact stat cards: `p-4`, label `text-xs`, value `text-xl`
+- Grid: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3`
+- Recent movements in `page-card` with compact section header
+
+## Do NOT
+
+- Huge cards, big fonts, large buttons, excessive whitespace
+- Heavy shadows (`shadow-lg`, `shadow-xl`), `rounded-3xl`
+- Rainbow UI, bright accents, marketing-page layouts
+- Full-width primary buttons in toolbars
+- Blade `@foreach` for large tables (use async `/data` endpoints)
+
+## Components
+
+`page-header`, `page-card`, `async-table`, `button`, `input`, `select`, `textarea`, `label`, `badge`, `status-pill`, `empty-state`, `stat-card`
+
+## Real-time & toasts
+
+- Pusher: update row only, `bg-yellow-50` highlight 1–2s, subtle toast
+- Toasts: top-right desktop, bottom mobile, `text-[13px] shadow-sm`
+- AJAX: disable button, show "Saving...", prevent double submit

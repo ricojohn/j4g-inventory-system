@@ -6,6 +6,94 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-surface: #fafafa;
+    --color-sidebar: #f5f5f5;
+}
+
+@layer base {
+    body {
+        @apply text-[13px] text-gray-900 antialiased;
+    }
+
+    h1,
+    h2,
+    h3 {
+        letter-spacing: -0.025em;
+    }
+}
+
+@layer components {
+    .ui-table {
+        @apply min-w-full divide-y divide-gray-200 text-[13px];
+    }
+
+    .ui-table thead {
+        @apply bg-gray-50;
+    }
+
+    .ui-table th {
+        @apply px-3 py-2 text-left text-[12px] font-medium text-gray-500;
+    }
+
+    .ui-table tbody {
+        @apply divide-y divide-gray-100 bg-white;
+    }
+
+    .ui-table td {
+        @apply px-3 py-2 text-gray-700;
+    }
+
+    .ui-table tbody tr {
+        @apply border-t border-gray-100 hover:bg-gray-50;
+    }
+
+    .ui-toolbar-form {
+        @apply flex flex-row flex-wrap items-center gap-2;
+    }
+
+    .ui-toolbar-input {
+        @apply h-9 min-h-9 w-auto min-w-48 rounded-lg border border-gray-300 px-3 text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200;
+    }
+
+    .ui-toolbar-select {
+        @apply h-9 min-h-9 w-auto rounded-lg border border-gray-300 px-3 text-[13px] text-gray-900 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200;
+    }
+
+    .ui-row-action {
+        @apply inline-flex h-8 shrink-0 items-center rounded-md px-2 text-[12px] font-medium text-gray-700 hover:bg-gray-100;
+    }
+
+    .ui-row-action-danger {
+        @apply text-red-600 hover:bg-red-50 hover:text-red-700;
+    }
+
+    .ui-row-more {
+        @apply h-8 rounded-md border border-gray-300 bg-white px-2 text-[12px] text-gray-700 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200;
+    }
+
+    .ui-modal-overlay {
+        @apply fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/40 p-4;
+    }
+
+    .ui-modal-overlay.hidden {
+        @apply hidden;
+    }
+
+    .ui-modal-panel {
+        @apply max-h-[90vh] w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg;
+    }
+
+    .ui-modal-header {
+        @apply border-b border-gray-200 px-4 py-3;
+    }
+
+    .ui-modal-body {
+        @apply p-4;
+    }
+
+    .ui-modal-footer {
+        @apply flex flex-col-reverse gap-2 border-t border-gray-200 px-4 py-3 sm:flex-row sm:justify-end;
+    }
 }

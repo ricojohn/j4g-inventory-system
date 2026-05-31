@@ -1,0 +1,69 @@
+---
+description: J4G Inventory UI/UX design system for Blade views, modals, tables, and dashboards
+globs: resources/views/**/*.blade.php,resources/css/app.css
+alwaysApply: false
+---
+
+# J4G Inventory UI / UX
+
+**Admin list pages:** follow [shopify-admin-ui.mdc](shopify-admin-ui.mdc) for shell, density, tables, and components.
+
+Modern operational SaaS — compact, clean, scannable, neutral. Not a typical Laravel CRUD dashboard.
+
+## Design goal
+
+Feel like Shopify Admin / Stripe / GitHub / Linear:
+
+- table-first, desktop-optimized, responsive on tablet/mobile
+- compact spacing, small readable text, thin borders, subtle hovers
+- not colorful, not flashy, not marketing-style
+
+## Colors
+
+- Background: `gray-50` / `neutral-50`
+- Panel: `white`
+- Border: `gray-200`
+- Text: `gray-900`, muted `gray-500`
+- Primary: `slate-900`
+- Status: green (ok/active), amber (low), red (danger/out), blue (reserved), gray (inactive)
+
+Avoid gradients, neon, rainbow dashboards.
+
+## Layout
+
+- Fixed `w-60` light sidebar + slim `h-12` top nav + full-width content
+- No centered `max-w-7xl` content — use full available width
+- Mobile: hidden sidebar (slide-over), horizontal scroll tables, scrollable modals, `h-10` tap targets
+
+## Typography
+
+Inter via Bunny Fonts. Base `text-[13px]`.
+
+| Element | Size |
+|---------|------|
+| Page title | `text-xl font-semibold` |
+| Table / body | `text-[13px]` |
+| Table header | `text-[12px]` |
+| Labels | `text-xs font-medium` |
+| Badges | `text-[11px]` |
+
+## Density
+
+- Table cells: `px-3 py-2`, rows ~40–44px
+- Stat cards: `p-4`, value `text-xl`
+- Panel headers: `px-4 py-3`
+
+## Components (prefer `<x-ui.*>`)
+
+`page-header`, `page-card`, `async-table`, `button`, `badge`, `status-pill`, `stat-card`, `empty-state`, form inputs
+
+CSS utilities: `ui-table`, `ui-toolbar-form`, `ui-row-action`, `ui-row-more`, `ui-modal-*`
+
+## Empty & loading states
+
+- Never blank pages — compact empty state inside panel
+- AJAX: disable submit, "Saving…" label, toast on result
+
+## Final rule
+
+Every screen answers: what is happening, what needs attention, what action to take — dense, calm, fast.
