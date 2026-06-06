@@ -39,7 +39,7 @@
                 </div>
                 <div class="md:col-span-5 flex flex-wrap items-end gap-2">
                     <x-ui.select id="stock-history-per-page" class="!w-auto min-w-28">
-                        <option value="25">25 / page</option>
+                        <option value="20">20 / page</option>
                         <option value="50">50 / page</option>
                         <option value="100">100 / page</option>
                     </x-ui.select>
@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             date_from: document.getElementById('date_from')?.value ?? '',
             date_to: document.getElementById('date_to')?.value ?? '',
         }),
-        getPerPage: () => Number(document.getElementById('stock-history-per-page')?.value ?? 25),
+        getPerPage: () => Number(document.getElementById('stock-history-per-page')?.value ?? 20),
         renderRows: (rows) => rows.map((movement) => `
             <tr>
                 <td>${escapeHtml(movement.created_at)}</td>

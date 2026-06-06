@@ -47,7 +47,7 @@ test('low stock data endpoint paginates cells', function () {
     $cell->update(['reorder_level' => 5]);
 
     $this->actingAs(userWithRole('Manager'))
-        ->getJson(route('reports.low-stock.data', ['per_page' => 25]))
+        ->getJson(route('reports.low-stock.data', ['per_page' => 20]))
         ->assertOk()
         ->assertJsonPath('success', true)
         ->assertJsonPath('data.0.id', $cell->id);

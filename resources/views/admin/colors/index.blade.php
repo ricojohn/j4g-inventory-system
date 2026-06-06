@@ -14,7 +14,7 @@
             <div class="ui-toolbar-form">
                 <x-ui.input type="search" id="colors-search" placeholder="Search colors..." class="w-auto! min-w-48" />
                 <x-ui.select id="colors-per-page" class="w-auto! min-w-28">
-                    <option value="25">25 / page</option>
+                    <option value="20">20 / page</option>
                     <option value="50">50 / page</option>
                     <option value="100">100 / page</option>
                 </x-ui.select>
@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
         getParams: () => ({
             search: document.getElementById('colors-search')?.value ?? '',
         }),
-        getPerPage: () => Number(document.getElementById('colors-per-page')?.value ?? 25),
+        getPerPage: () => Number(document.getElementById('colors-per-page')?.value ?? 20),
         renderRows: (rows) => rows.map((color) => `
             <tr>
                 <td>${escapeHtml(color.name)}</td>

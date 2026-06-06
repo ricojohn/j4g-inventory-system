@@ -46,6 +46,40 @@ test('user without view inventory permission cannot access product inventory pag
         ->assertForbidden();
 });
 
+test('inventory data returns paginated colors with search', function () {
+    $product = createTestProduct(['code' => 'PAG', 'name' => 'Pagination Test']);
+
+    attachTestSize($product, 'M', 1);
+
+    foreach (range(1, 21) as $index) {
+        attachTestColor($product, "Color {$index}", $index);
+    }
+
+    $this->actingAs(userWithRole('Staff'))
+        ->getJson(route('products.inventory.data', ['product' => $product, 'per_page' => 20]))
+        ->assertOk()
+        ->assertJsonStructure([
+            'sizes',
+            'colors',
+            'pagination' => ['current_page', 'last_page', 'per_page', 'total'],
+        ])
+        ->assertJsonPath('pagination.per_page', 20)
+        ->assertJsonPath('pagination.total', 21)
+        ->assertJsonCount(20, 'colors');
+
+    $this->actingAs(userWithRole('Staff'))
+        ->getJson(route('products.inventory.data', ['product' => $product, 'per_page' => 20, 'page' => 2]))
+        ->assertOk()
+        ->assertJsonPath('pagination.current_page', 2)
+        ->assertJsonPath('colors.0.color_name', 'Color 21');
+
+    $this->actingAs(userWithRole('Staff'))
+        ->getJson(route('products.inventory.data', ['product' => $product, 'search' => 'Color 5']))
+        ->assertOk()
+        ->assertJsonPath('pagination.total', 1)
+        ->assertJsonPath('colors.0.color_name', 'Color 5');
+});
+
 test('inventory data returns sizes ordered by sort order', function () {
     $product = createTestProduct(['code' => 'ORD', 'name' => 'Order Test']);
 

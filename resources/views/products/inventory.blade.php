@@ -21,9 +21,22 @@
     @endif
 
     <x-ui.page-card>
+        <x-slot:toolbar>
+            <div class="flex flex-wrap items-center gap-2">
+                <x-ui.input type="search" id="inventory-search" placeholder="Search colors..." class="w-auto! min-w-48" />
+                <x-ui.select id="inventory-per-page" class="w-auto! min-w-28">
+                    <option value="20">20 / page</option>
+                    <option value="50">50 / page</option>
+                    <option value="100">100 / page</option>
+                </x-ui.select>
+            </div>
+        </x-slot:toolbar>
+
         <div id="inventory-grid-wrap" class="overflow-x-auto p-4">
             <p class="text-[13px] text-gray-500">Loading inventory grid...</p>
         </div>
+
+        <div id="inventory-pagination" class="hidden border-t border-gray-200 px-4 py-3"></div>
     </x-ui.page-card>
 
     <div id="bulk-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true">
@@ -133,6 +146,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const config = @json($inventoryConfig);
     let gridData = null;
+    let currentPage = 1;
 
     const actionOptions = [];
     if (config.permissions.stockIn) actionOptions.push({ value: 'stock-in', label: 'Stock In', route: config.routes.stockIn });
@@ -145,18 +159,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const actionSelect = document.getElementById('cell-action');
     actionSelect.innerHTML = actionOptions.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
 
-    async function loadGrid() {
-        const response = await fetch(config.dataUrl, { headers: { Accept: 'application/json' } });
+    async function loadGrid(page = 1) {
+        currentPage = page;
+        const wrap = document.getElementById('inventory-grid-wrap');
+        wrap.innerHTML = '<p class="text-[13px] text-gray-500">Loading inventory grid...</p>';
+
+        const params = new URLSearchParams({
+            page: String(currentPage),
+            per_page: String(document.getElementById('inventory-per-page')?.value ?? 20),
+        });
+
+        const search = document.getElementById('inventory-search')?.value?.trim() ?? '';
+        if (search) {
+            params.set('search', search);
+        }
+
+        const response = await fetch(`${config.dataUrl}?${params.toString()}`, {
+            headers: { Accept: 'application/json' },
+        });
         gridData = await response.json();
         renderGrid();
+
+        const paginationContainer = document.getElementById('inventory-pagination');
+        if (paginationContainer && gridData.pagination) {
+            renderPagination(paginationContainer, gridData.pagination, loadGrid);
+        }
     }
 
     function renderGrid() {
         const wrap = document.getElementById('inventory-grid-wrap');
         const { sizes, colors } = gridData;
 
-        if (!sizes.length || !colors.length) {
+        if (!sizes.length) {
             wrap.innerHTML = '<p class="text-[13px] text-gray-500">Add sizes and colors on the product edit page first.</p>';
+            return;
+        }
+
+        if (!colors.length) {
+            wrap.innerHTML = '<p class="text-[13px] text-gray-500">No colors match your search.</p>';
             return;
         }
 
@@ -248,14 +288,17 @@ document.addEventListener('DOMContentLoaded', () => {
             await postData(action.route, payload);
             showToast('Stock updated.');
             closeOverlay(cellModal);
-            await loadGrid();
+            await loadGrid(currentPage);
             window.dispatchEvent(new CustomEvent('inventory:updated'));
         } catch (error) {
             showToast(error.message || 'Unable to update stock.', 'error');
         }
     });
 
-    window.addEventListener('inventory:updated', () => loadGrid());
+    window.addEventListener('inventory:updated', () => loadGrid(currentPage));
+
+    document.getElementById('inventory-search')?.addEventListener('input', debounce(() => loadGrid(1), 300));
+    document.getElementById('inventory-per-page')?.addEventListener('change', () => loadGrid(1));
 
     const bulkActionSelect = document.getElementById('bulk-action');
     const bulkRowsBody = document.getElementById('bulk-rows');
@@ -348,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 closeOverlay(bulkModal);
             }
 
-            await loadGrid();
+            await loadGrid(currentPage);
             window.dispatchEvent(new CustomEvent('inventory:updated'));
         } catch (error) {
             bulkStatus.textContent = error.message || 'Bulk update failed.';

@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
         grid.innerHTML = '<p class="text-sm text-gray-500">Loading roles...</p>';
 
         try {
-            const perPage = 25;
+            const perPage = 20;
             const payload = await fetchTableData(@json(route('admin.roles.data')), {
                 page,
                 per_page: perPage,

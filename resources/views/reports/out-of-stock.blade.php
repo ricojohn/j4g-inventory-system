@@ -10,7 +10,7 @@
             <div class="ui-toolbar-form">
                 <x-ui.input type="search" id="out-of-stock-search" placeholder="Search products..." class="w-auto! min-w-48" />
                 <x-ui.select id="out-of-stock-per-page" class="w-auto! min-w-28">
-                    <option value="25">25 / page</option>
+                    <option value="20">20 / page</option>
                     <option value="50">50 / page</option>
                     <option value="100">100 / page</option>
                 </x-ui.select>
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
         getParams: () => ({
             search: document.getElementById('out-of-stock-search')?.value ?? '',
         }),
-        getPerPage: () => Number(document.getElementById('out-of-stock-per-page')?.value ?? 25),
+        getPerPage: () => Number(document.getElementById('out-of-stock-per-page')?.value ?? 20),
         renderRows: (rows) => rows.map((variant) => `
             <tr>
                 <td>${escapeHtml(variant.product_name)}</td>

@@ -21,7 +21,7 @@
                     <option value="all">All</option>
                 </x-ui.select>
                 <x-ui.select id="products-per-page" class="w-auto! min-w-28">
-                    <option value="25">25 / page</option>
+                    <option value="20">20 / page</option>
                     <option value="50">50 / page</option>
                     <option value="100">100 / page</option>
                 </x-ui.select>
@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
             search: document.getElementById('products-search')?.value ?? '',
             status: document.getElementById('products-status-filter')?.value ?? 'active',
         }),
-        getPerPage: () => Number(document.getElementById('products-per-page')?.value ?? 25),
+        getPerPage: () => Number(document.getElementById('products-per-page')?.value ?? 20),
         renderRows: (rows) => rows.map((product) => `
             <tr>
                 <td>${escapeHtml(product.code)}</td>

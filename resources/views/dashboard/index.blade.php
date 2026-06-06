@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dataUrl: @json(route('dashboard.recent-movements.data')),
         columnCount: 7,
         emptyMessage: 'No stock movements yet.',
-        getPerPage: () => 25,
+        getPerPage: () => 20,
         renderRows: (rows) => rows.map((movement) => `
             <tr>
                 <td>${escapeHtml(movement.created_at)}</td>

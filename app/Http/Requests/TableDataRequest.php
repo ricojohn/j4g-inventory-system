@@ -27,7 +27,7 @@ class TableDataRequest extends FormRequest
     {
         return [
             'page' => ['sometimes', 'integer', 'min:1'],
-            'per_page' => ['sometimes', 'integer', 'in:25,50,100'],
+            'per_page' => ['sometimes', 'integer', 'in:20,50,100'],
             'search' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
@@ -39,6 +39,6 @@ class TableDataRequest extends FormRequest
 
     public function perPageCount(): int
     {
-        return $this->integer('per_page', 25);
+        return $this->integer('per_page', 20);
     }
 }

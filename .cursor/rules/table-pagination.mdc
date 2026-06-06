@@ -1,0 +1,38 @@
+---
+description: Pagination and search requirements for all tables (existing and future)
+globs: app/Http/Controllers/**/*.php,resources/views/**/*.blade.php,resources/js/data-table.js,routes/web.php,tests/Feature/*Async*,tests/Feature/*Inventory*
+alwaysApply: false
+---
+
+# Table Pagination & Search
+
+Every table in this application must paginate. Default **20 per page** with a per-page selector offering **20 / 50 / 100**.
+
+See also: [data-loading.mdc](data-loading.mdc) for async-table mechanics.
+
+## Backend
+
+- Validate `page`, `per_page`, and `search` via `TableDataRequest` (`per_page` allowed: `20,50,100`, default `20`)
+- Return paginated JSON via `PaginatedJsonResponse::fromPaginator()` for standard list tables
+- Apply `->paginate($request->perPageCount(), ['*'], 'page', $request->pageNumber())` on every `/data` endpoint
+
+## Frontend
+
+- Include a per-page `<select>` with options 20 / 50 / 100 (default selected: 20)
+- Pass `getPerPage: () => Number(select?.value ?? 20)` to `initAsyncTable`
+- Add a debounced search input (`debounce(..., 300)`) when the table has searchable text columns (name, code, email, etc.)
+- Use `renderPagination` from `data-table.js` for page controls
+
+## Non-standard tables
+
+For matrix or card layouts (e.g. inventory color × size grid), paginate the **primary row dimension** and search that dimension. Column headers (sizes) load in full; only rows (colors) paginate.
+
+## Do NOT
+
+- Load entire datasets without pagination
+- Use `25` as default or as a per-page option
+- Omit search on list tables that display searchable text fields
+
+## Tests
+
+Assert JSON `pagination` shape, default `per_page` of 20, search filtering, and 403 for unauthorized `/data` access.

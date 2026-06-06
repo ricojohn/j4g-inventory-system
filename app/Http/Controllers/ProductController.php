@@ -108,15 +108,13 @@ class ProductController extends Controller
         ]);
     }
 
-    public function inventoryData(Product $product): JsonResponse
+    public function inventoryData(TableDataRequest $request, Product $product): JsonResponse
     {
         $this->authorize('view', $product);
         abort_unless(auth()->user()?->can('view inventory'), 403);
 
         $product->load([
             'sizes' => fn ($query) => $query->with('size')->orderBy('sort_order')->orderBy('id'),
-            'colors.color',
-            'colors.cells' => fn ($query) => $query->with(['size.size']),
         ]);
 
         $sizes = $product->sizes->map(fn ($productSize) => [
@@ -125,7 +123,23 @@ class ProductController extends Controller
             'sort_order' => $productSize->sort_order,
         ])->values();
 
-        $colors = $product->colors->map(function ($productColor) {
+        $colorsPaginator = $product->colors()
+            ->with([
+                'color',
+                'cells' => fn ($query) => $query->with(['size.size']),
+            ])
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = $request->string('search');
+                $query->where(function ($inner) use ($search) {
+                    $inner->where('item_code', 'like', "%{$search}%")
+                        ->orWhereHas('color', fn ($colorQuery) => $colorQuery->where('name', 'like', "%{$search}%"));
+                });
+            })
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->paginate($request->perPageCount(), ['*'], 'page', $request->pageNumber());
+
+        $colors = collect($colorsPaginator->items())->map(function ($productColor) {
             $cells = [];
 
             foreach ($productColor->cells as $cell) {
@@ -152,6 +166,12 @@ class ProductController extends Controller
             ],
             'sizes' => $sizes,
             'colors' => $colors,
+            'pagination' => [
+                'current_page' => $colorsPaginator->currentPage(),
+                'last_page' => $colorsPaginator->lastPage(),
+                'per_page' => $colorsPaginator->perPage(),
+                'total' => $colorsPaginator->total(),
+            ],
         ]);
     }
 

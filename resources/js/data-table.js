@@ -168,7 +168,7 @@ export function initAsyncTable(config) {
         emptyMessage = 'No records found.',
         renderRows,
         getParams = () => ({}),
-        getPerPage = () => 25,
+        getPerPage = () => 20,
         onLoaded = null,
     } = config;
 
