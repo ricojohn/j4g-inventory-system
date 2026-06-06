@@ -1,0 +1,33 @@
+{
+  "_data-table-CJ0eOGEz.js": {
+    "file": "assets/data-table-CJ0eOGEz.js",
+    "name": "data-table"
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-BoOrG7Ud.css",
+    "src": "resources/css/app.css",
+    "isEntry": true,
+    "name": "app",
+    "names": [
+      "app.css"
+    ]
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-BMKDaYL_.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true,
+    "imports": [
+      "_data-table-CJ0eOGEz.js"
+    ]
+  },
+  "resources/js/dashboard.js": {
+    "file": "assets/dashboard-DHXOy8_H.js",
+    "name": "dashboard",
+    "src": "resources/js/dashboard.js",
+    "isEntry": true,
+    "imports": [
+      "_data-table-CJ0eOGEz.js"
+    ]
+  }
+}
