@@ -232,7 +232,7 @@ function initRecentMovementsTable(config) {
         dataUrl: config.routes.recentMovements,
         columnCount: 7,
         emptyMessage: 'No stock movements yet.',
-        getPerPage: () => 20,
+        getPerPage: () => 10,
         renderRows: (rows) => rows.map((movement) => `
             <tr>
                 <td>${window.escapeHtml(movement.created_at)}</td>

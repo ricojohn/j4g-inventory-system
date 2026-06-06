@@ -27,7 +27,7 @@ class TableDataRequest extends FormRequest
     {
         return [
             'page' => ['sometimes', 'integer', 'min:1'],
-            'per_page' => ['sometimes', 'integer', 'in:20,50,100'],
+            'per_page' => ['sometimes', 'integer', 'in:10,20,50,100'],
             'search' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
