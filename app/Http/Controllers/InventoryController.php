@@ -6,9 +6,11 @@ use App\Http\Requests\Inventory\AdjustStockRequest;
 use App\Http\Requests\Inventory\BulkStockMovementRequest;
 use App\Http\Requests\Inventory\StockMovementRequest;
 use App\Models\ProductColorSize;
+use App\Models\StockMovement;
 use App\Services\InventoryService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
@@ -16,6 +18,30 @@ use Throwable;
 class InventoryController extends Controller
 {
     public function __construct(private InventoryService $inventoryService) {}
+
+    public function cellHistory(Request $request, ProductColorSize $cell): JsonResponse
+    {
+        abort_unless($request->user()?->can('view inventory'), 403);
+
+        $movements = $cell->movements()
+            ->with('user')
+            ->latest('created_at')
+            ->limit(5)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'movements' => $movements->map(fn (StockMovement $movement) => [
+                'movement_type' => $movement->type->value,
+                'quantity' => $movement->quantity,
+                'before_stock' => $movement->before_stock,
+                'after_stock' => $movement->after_stock,
+                'remarks' => $movement->remarks,
+                'user_name' => $movement->user?->name ?? 'System',
+                'created_at' => $movement->created_at->format('M d, Y H:i'),
+            ])->values(),
+        ]);
+    }
 
     public function stockIn(StockMovementRequest $request): JsonResponse
     {

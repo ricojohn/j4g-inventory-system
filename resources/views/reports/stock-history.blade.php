@@ -81,10 +81,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const payload = await response.json();
 
         if (response.ok) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const presetProductId = urlParams.get('product_id');
+
             payload.products.forEach((product) => {
                 const option = document.createElement('option');
                 option.value = product.id;
                 option.textContent = product.name;
+                if (presetProductId && String(product.id) === presetProductId) {
+                    option.selected = true;
+                }
                 productSelect.appendChild(option);
             });
 

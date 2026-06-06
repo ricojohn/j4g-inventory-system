@@ -20,6 +20,16 @@
         </div>
     @endif
 
+    <div id="inventory-summary" class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <x-ui.stat-card label="Total Colors" value="—" data-summary="total-colors" />
+        <x-ui.stat-card label="Total Size Cells / SKUs" value="—" data-summary="total-skus" />
+        <x-ui.stat-card label="Total Current Stock" value="—" data-summary="total-stock" />
+        <x-ui.stat-card label="Total Reserved Quantity" value="—" data-summary="total-reserved" />
+        <x-ui.stat-card label="Total Available Stock" value="—" data-summary="total-available" />
+        <x-ui.stat-card label="Low Stock Count" value="—" accent="warning" data-summary="low-stock-count" />
+        <x-ui.stat-card label="Out of Stock Count" value="—" accent="danger" data-summary="out-of-stock-count" />
+    </div>
+
     <x-ui.page-card>
         <x-slot:toolbar>
             <div class="flex flex-wrap items-center gap-2">
@@ -32,8 +42,8 @@
             </div>
         </x-slot:toolbar>
 
-        <div id="inventory-grid-wrap" class="overflow-x-auto p-4">
-            <p class="text-[13px] text-gray-500">Loading inventory grid...</p>
+        <div id="inventory-grid-wrap" class="inventory-grid-scroll">
+            <p class="p-4 text-[13px] text-gray-500">Loading inventory grid...</p>
         </div>
 
         <div id="inventory-pagination" class="hidden border-t border-gray-200 px-4 py-3"></div>
@@ -81,7 +91,7 @@
     </div>
 
     <div id="cell-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true">
-        <div class="ui-modal-panel max-w-md overflow-hidden">
+        <div class="ui-modal-panel max-w-lg overflow-hidden">
             <div class="ui-modal-header">
                 <h2 id="cell-modal-title" class="text-[13px] font-semibold text-gray-900">Update Stock</h2>
                 <p id="cell-modal-subtitle" class="mt-0.5 text-[13px] text-gray-500"></p>
@@ -107,6 +117,15 @@
                         <x-ui.label for="cell-remarks">Remarks</x-ui.label>
                         <x-ui.textarea id="cell-remarks" rows="2"></x-ui.textarea>
                     </div>
+                    <div class="border-t border-gray-200 pt-3">
+                        <div class="mb-2 flex items-center justify-between gap-2">
+                            <h3 class="text-[13px] font-semibold text-gray-900">Recent Stock History</h3>
+                            @can('view stock history')
+                                <a id="cell-history-full-link" href="#" class="text-[12px] font-medium text-slate-700 hover:text-slate-900">View Full History</a>
+                            @endcan
+                        </div>
+                        <div id="cell-history" class="text-[12px] text-gray-500">Loading history...</div>
+                    </div>
                 </div>
                 <div class="ui-modal-footer">
                     <x-ui.button type="button" variant="secondary" data-close="cell-modal">Cancel</x-ui.button>
@@ -122,6 +141,11 @@
     $inventoryConfig = [
         'productId' => $product->id,
         'dataUrl' => route('products.inventory.data', $product),
+        'cellHistoryUrlBase' => url('/inventory/cell'),
+        'canViewStockHistory' => auth()->user()?->can('view stock history'),
+        'stockHistoryUrl' => auth()->user()?->can('view stock history')
+            ? route('reports.stock-history', ['product_id' => $product->id])
+            : null,
         'readOnly' => $readOnly,
         'permissions' => [
             'stockIn' => auth()->user()?->can('stock in'),
@@ -162,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadGrid(page = 1) {
         currentPage = page;
         const wrap = document.getElementById('inventory-grid-wrap');
-        wrap.innerHTML = '<p class="text-[13px] text-gray-500">Loading inventory grid...</p>';
+        wrap.innerHTML = '<p class="p-4 text-[13px] text-gray-500">Loading inventory grid...</p>';
 
         const params = new URLSearchParams({
             page: String(currentPage),
@@ -178,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { Accept: 'application/json' },
         });
         gridData = await response.json();
+        renderSummary();
         renderGrid();
 
         const paginationContainer = document.getElementById('inventory-pagination');
@@ -186,26 +211,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function renderSummary() {
+        const summary = gridData?.summary;
+        if (!summary) {
+            return;
+        }
+
+        const map = {
+            'total-colors': summary.total_colors,
+            'total-skus': summary.total_skus,
+            'total-stock': summary.total_stock,
+            'total-reserved': summary.total_reserved,
+            'total-available': summary.total_available,
+            'low-stock-count': summary.low_stock_count,
+            'out-of-stock-count': summary.out_of_stock_count,
+        };
+
+        Object.entries(map).forEach(([key, value]) => {
+            const card = document.querySelector(`[data-summary="${key}"] .stat-value`);
+            if (card) {
+                card.textContent = value;
+            }
+        });
+    }
+
     function renderGrid() {
         const wrap = document.getElementById('inventory-grid-wrap');
         const { sizes, colors } = gridData;
 
         if (!sizes.length) {
-            wrap.innerHTML = '<p class="text-[13px] text-gray-500">Add sizes and colors on the product edit page first.</p>';
+            wrap.innerHTML = '<p class="p-4 text-[13px] text-gray-500">Add sizes and colors on the product edit page first.</p>';
             return;
         }
 
         if (!colors.length) {
-            wrap.innerHTML = '<p class="text-[13px] text-gray-500">No colors match your search.</p>';
+            wrap.innerHTML = '<p class="p-4 text-[13px] text-gray-500">No colors match your search.</p>';
             return;
         }
 
-        let html = '<table class="ui-table min-w-full"><thead><tr><th>Color</th>';
-        sizes.forEach(s => { html += `<th>${escapeHtml(s.size_name)}</th>`; });
+        let html = '<table class="ui-table inventory-grid-table min-w-full"><thead><tr><th class="inventory-sticky-corner">Color</th>';
+        sizes.forEach(s => { html += `<th class="inventory-sticky-header">${escapeHtml(s.size_name)}</th>`; });
         html += '</tr></thead><tbody>';
 
         colors.forEach(color => {
-            html += `<tr><td class="whitespace-nowrap"><div class="font-medium">${escapeHtml(color.item_code)}</div><div class="text-gray-500">${escapeHtml(color.color_name)}</div></td>`;
+            html += `<tr><td class="inventory-sticky-col whitespace-nowrap"><div class="font-medium">${escapeHtml(color.item_code)}</div><div class="text-gray-500">${escapeHtml(color.color_name)}</div></td>`;
             sizes.forEach(size => {
                 const cell = color.cells[size.id];
                 if (!cell) {
@@ -257,7 +306,59 @@ document.addEventListener('DOMContentLoaded', () => {
     function openCellModal(cellId, label) {
         document.getElementById('cell-id').value = cellId;
         document.getElementById('cell-modal-subtitle').textContent = label;
+
+        const fullLink = document.getElementById('cell-history-full-link');
+        if (fullLink && config.stockHistoryUrl) {
+            fullLink.href = config.stockHistoryUrl;
+        }
+
+        loadCellHistory(cellId);
         cellModal.classList.remove('hidden');
+    }
+
+    async function loadCellHistory(cellId) {
+        const container = document.getElementById('cell-history');
+        container.innerHTML = '<p class="text-gray-500">Loading history...</p>';
+
+        try {
+            const response = await fetch(`${config.cellHistoryUrlBase}/${cellId}/history`, {
+                headers: { Accept: 'application/json' },
+            });
+            const payload = await response.json();
+
+            if (!response.ok) {
+                throw new Error(payload.message || 'Unable to load history.');
+            }
+
+            renderCellHistory(payload.movements || []);
+        } catch (error) {
+            container.innerHTML = `<p class="text-red-600">${escapeHtml(error.message || 'Unable to load history.')}</p>`;
+        }
+    }
+
+    function renderCellHistory(movements) {
+        const container = document.getElementById('cell-history');
+
+        if (!movements.length) {
+            container.innerHTML = '<p class="text-gray-500">No stock movements recorded for this cell yet.</p>';
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="max-h-48 space-y-2 overflow-y-auto">
+                ${movements.map((movement) => `
+                    <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <span class="font-medium text-gray-900">${escapeHtml(movement.movement_type)}</span>
+                            <span class="text-gray-500">${escapeHtml(movement.created_at)}</span>
+                        </div>
+                        <div class="mt-1 text-gray-700">Qty: ${escapeHtml(movement.quantity)} · ${escapeHtml(movement.before_stock)} → ${escapeHtml(movement.after_stock)}</div>
+                        <div class="mt-1 text-gray-500">By ${escapeHtml(movement.user_name)}</div>
+                        ${movement.remarks ? `<div class="mt-1 text-gray-600">${escapeHtml(movement.remarks)}</div>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        `;
     }
 
     actionSelect?.addEventListener('change', () => {

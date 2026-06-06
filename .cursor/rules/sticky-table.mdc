@@ -1,0 +1,25 @@
+---
+description: Readable sticky table header and sticky first column for scrollable matrix/grid tables
+globs: resources/views/**/*.blade.php,resources/css/app.css
+alwaysApply: false
+---
+
+# Sticky, Readable Grid Tables
+
+For wide matrix/grid tables (e.g. inventory color x size) inside a `<x-ui.page-card>`:
+
+## Scroll container
+
+- The scroll element owns BOTH axes: `max-h-[...] overflow-auto`.
+- Do NOT put padding on the scroll element — top padding leaves a gap where rows peek ABOVE a `top-0` sticky header. Pad placeholder/empty `<p>` messages instead.
+
+## Sticky cells (z-index layering)
+
+- Header cells: `sticky top-0 z-20` + opaque `bg-gray-50` + `border-b`.
+- First column cells: `sticky left-0 z-10` + opaque `bg-white` + `border-r`.
+- Top-left corner cell: `sticky left-0 top-0 z-30` so it stays above both.
+
+## Readable header
+
+- Override only the grid's own selector (not `.ui-table th`): `text-[11px] font-semibold uppercase tracking-wide text-gray-600`.
+- Keep horizontal row dividers only; avoid vertical per-cell borders.

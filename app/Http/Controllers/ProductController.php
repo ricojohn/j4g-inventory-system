@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\StockStatus;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\TableDataRequest;
 use App\Http\Requests\UpdateProductRequest;
@@ -156,6 +157,22 @@ class ProductController extends Controller
             ];
         })->values();
 
+        $allCells = $product->cells()->get(['current_stock', 'reserved_quantity', 'reorder_level']);
+        $lowStockCount = 0;
+        $outOfStockCount = 0;
+
+        foreach ($allCells as $cell) {
+            $status = $this->inventoryService->getStockStatus($cell);
+
+            if ($status === StockStatus::LowStock) {
+                $lowStockCount++;
+            }
+
+            if ($status === StockStatus::OutOfStock) {
+                $outOfStockCount++;
+            }
+        }
+
         return response()->json([
             'success' => true,
             'product' => [
@@ -166,6 +183,15 @@ class ProductController extends Controller
             ],
             'sizes' => $sizes,
             'colors' => $colors,
+            'summary' => [
+                'total_colors' => $product->colors()->count(),
+                'total_skus' => $allCells->count(),
+                'total_stock' => (int) $allCells->sum('current_stock'),
+                'total_reserved' => (int) $allCells->sum('reserved_quantity'),
+                'total_available' => (int) $allCells->sum(fn ($cell) => $cell->current_stock - $cell->reserved_quantity),
+                'low_stock_count' => $lowStockCount,
+                'out_of_stock_count' => $outOfStockCount,
+            ],
             'pagination' => [
                 'current_page' => $colorsPaginator->currentPage(),
                 'last_page' => $colorsPaginator->lastPage(),

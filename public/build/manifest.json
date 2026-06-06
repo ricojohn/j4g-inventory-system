@@ -1,6 +1,10 @@
 {
+  "_data-table-CJ0eOGEz.js": {
+    "file": "assets/data-table-CJ0eOGEz.js",
+    "name": "data-table"
+  },
   "resources/css/app.css": {
-    "file": "assets/app-Dc01BgQl.css",
+    "file": "assets/app-BoOrG7Ud.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -9,9 +13,21 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-Dncj1OdO.js",
+    "file": "assets/app-BMKDaYL_.js",
     "name": "app",
     "src": "resources/js/app.js",
-    "isEntry": true
+    "isEntry": true,
+    "imports": [
+      "_data-table-CJ0eOGEz.js"
+    ]
+  },
+  "resources/js/dashboard.js": {
+    "file": "assets/dashboard-Bv6pi0-4.js",
+    "name": "dashboard",
+    "src": "resources/js/dashboard.js",
+    "isEntry": true,
+    "imports": [
+      "_data-table-CJ0eOGEz.js"
+    ]
   }
 }

@@ -96,4 +96,24 @@
     .ui-modal-footer {
         @apply flex flex-col-reverse gap-2 border-t border-gray-200 px-4 py-3 sm:flex-row sm:justify-end;
     }
+
+    .inventory-grid-scroll {
+        @apply max-h-[calc(100vh-16rem)] overflow-auto;
+    }
+
+    .inventory-grid-table thead th {
+        @apply border-b border-gray-200 bg-gray-50 text-[11px] font-semibold uppercase tracking-wide text-gray-600;
+    }
+
+    .inventory-grid-table thead th.inventory-sticky-header {
+        @apply sticky top-0 z-20 bg-gray-50;
+    }
+
+    .inventory-grid-table thead th.inventory-sticky-corner {
+        @apply sticky left-0 top-0 z-30 bg-gray-50;
+    }
+
+    .inventory-grid-table tbody td.inventory-sticky-col {
+        @apply sticky left-0 z-10 border-r border-gray-100 bg-white;
+    }
 }

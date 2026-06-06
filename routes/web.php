@@ -31,6 +31,22 @@ Route::middleware('auth')->group(function () {
         ->middleware('permission:view dashboard')
         ->name('dashboard.stats');
 
+    Route::get('/dashboard/stock-health', [DashboardController::class, 'stockHealth'])
+        ->middleware('permission:view dashboard')
+        ->name('dashboard.stock-health');
+
+    Route::get('/dashboard/stock-movement-trend', [DashboardController::class, 'stockMovementTrend'])
+        ->middleware('permission:view dashboard')
+        ->name('dashboard.stock-movement-trend');
+
+    Route::get('/dashboard/low-stock-by-product', [DashboardController::class, 'lowStockByProduct'])
+        ->middleware('permission:view dashboard')
+        ->name('dashboard.low-stock-by-product');
+
+    Route::get('/dashboard/active-products', [DashboardController::class, 'activeProducts'])
+        ->middleware('permission:view dashboard')
+        ->name('dashboard.active-products');
+
     Route::get('/dashboard/recent-movements/data', [DashboardController::class, 'recentMovementsData'])
         ->middleware('permission:view dashboard')
         ->name('dashboard.recent-movements.data');
@@ -123,6 +139,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/products/{product}/inventory', [ProductController::class, 'manageInventory'])
         ->middleware('permission:view inventory')
         ->name('products.inventory');
+
+    Route::get('/inventory/cell/{cell}/history', [InventoryController::class, 'cellHistory'])
+        ->middleware('permission:view inventory')
+        ->name('inventory.cell-history');
 
     Route::post('/inventory/stock-in', [InventoryController::class, 'stockIn'])
         ->middleware('permission:stock in')

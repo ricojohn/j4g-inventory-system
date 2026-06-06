@@ -14,17 +14,59 @@
     @endphp
 
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <x-ui.stat-card label="Total Products" :value="$totalProducts" :href="$productsHref" data-dashboard-stat="total-products" />
-        <x-ui.stat-card label="Total Stock" :value="$totalStock" :href="$productsHref" data-dashboard-stat="total-stock" />
-        <x-ui.stat-card label="Total Reserved" :value="$totalReserved" :href="$stockHistoryHref" data-dashboard-stat="total-reserved" />
-        <x-ui.stat-card label="Total Available" :value="$totalAvailable" :href="$productsHref" data-dashboard-stat="total-available" />
-        <x-ui.stat-card label="Low Stock Cells" :value="$lowStockCount" accent="warning" :href="$lowStockHref" data-dashboard-stat="low-stock-count" />
-        <x-ui.stat-card label="Out of Stock Cells" :value="$outOfStockCount" accent="danger" :href="$outOfStockHref" data-dashboard-stat="out-of-stock-count" />
+        <x-ui.stat-card label="Total Products" icon="products" :value="$totalProducts" :href="$productsHref" data-dashboard-stat="total-products" />
+        <x-ui.stat-card label="Total Stock" icon="stock" :value="$totalStock" :href="$productsHref" data-dashboard-stat="total-stock" />
+        <x-ui.stat-card label="Total Reserved" icon="reserved" :value="$totalReserved" :href="$stockHistoryHref" data-dashboard-stat="total-reserved" />
+        <x-ui.stat-card label="Total Available" icon="available" :value="$totalAvailable" :href="$productsHref" data-dashboard-stat="total-available" />
+        <x-ui.stat-card label="Low Stock Cells" icon="low-stock" :value="$lowStockCount" accent="warning" :href="$lowStockHref" data-dashboard-stat="low-stock-count" />
+        <x-ui.stat-card label="Out of Stock Cells" icon="out-of-stock" :value="$outOfStockCount" accent="danger" :href="$outOfStockHref" data-dashboard-stat="out-of-stock-count" />
+    </div>
+
+    <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <x-ui.page-card>
+            <div class="border-b border-gray-200 px-4 py-3">
+                <h2 class="text-[13px] font-semibold text-gray-900">Stock Health</h2>
+                <p class="mt-0.5 text-[12px] text-gray-500">Distribution of inventory cell status</p>
+            </div>
+            <div id="chart-stock-health" class="min-h-64 p-4"></div>
+        </x-ui.page-card>
+
+        <x-ui.page-card>
+            <div class="border-b border-gray-200 px-4 py-3">
+                <h2 class="text-[13px] font-semibold text-gray-900">Stock Movement Trend</h2>
+                <p class="mt-0.5 text-[12px] text-gray-500">Last 14 days of stock in, out, and damaged</p>
+            </div>
+            <div id="chart-movement-trend" class="min-h-64 p-4"></div>
+        </x-ui.page-card>
+    </div>
+
+    <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <x-ui.page-card>
+            <div class="border-b border-gray-200 px-4 py-3">
+                <h2 class="text-[13px] font-semibold text-gray-900">Low Stock by Product</h2>
+                <p class="mt-0.5 text-[12px] text-gray-500">Top 10 products with stock issues</p>
+            </div>
+            <div id="chart-low-stock-by-product" class="min-h-64 p-4"></div>
+        </x-ui.page-card>
+
+        <x-ui.page-card>
+            <div class="border-b border-gray-200 px-4 py-3">
+                <h2 class="text-[13px] font-semibold text-gray-900">Most Active Products</h2>
+                <p class="mt-0.5 text-[12px] text-gray-500">Top 10 products by movement count (30 days)</p>
+            </div>
+            <div id="chart-active-products" class="min-h-64 p-4"></div>
+        </x-ui.page-card>
     </div>
 
     <x-ui.page-card class="mt-4">
-        <div class="border-b border-gray-200 px-4 py-3">
-            <h2 class="text-[13px] font-semibold text-gray-900">Recent Stock Movements</h2>
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
+            <div>
+                <h2 class="text-[13px] font-semibold text-gray-900">Recent Stock Movements</h2>
+                <p class="mt-0.5 text-[12px] text-gray-500">Latest inventory activity across all products</p>
+            </div>
+            @can('view stock history')
+                <x-ui.button variant="secondary" :href="route('reports.stock-history')">View All Stock History</x-ui.button>
+            @endcan
         </div>
         <x-ui.async-table tbody-id="recent-movements-table-body" pagination-id="recent-movements-pagination" class="ui-table">
             <x-slot:head>
@@ -43,56 +85,20 @@
 @endsection
 
 @push('scripts')
+@php
+    $dashboardConfig = [
+        'routes' => [
+            'stats' => route('dashboard.stats'),
+            'stockHealth' => route('dashboard.stock-health'),
+            'stockMovementTrend' => route('dashboard.stock-movement-trend'),
+            'lowStockByProduct' => route('dashboard.low-stock-by-product'),
+            'activeProducts' => route('dashboard.active-products'),
+            'recentMovements' => route('dashboard.recent-movements.data'),
+        ],
+    ];
+@endphp
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const table = initAsyncTable({
-        tbodyId: 'recent-movements-table-body',
-        paginationId: 'recent-movements-pagination',
-        dataUrl: @json(route('dashboard.recent-movements.data')),
-        columnCount: 7,
-        emptyMessage: 'No stock movements yet.',
-        getPerPage: () => 20,
-        renderRows: (rows) => rows.map((movement) => `
-            <tr>
-                <td>${escapeHtml(movement.created_at)}</td>
-                <td>${escapeHtml(movement.product_name)}</td>
-                <td>${escapeHtml(movement.color_name)}</td>
-                <td>${escapeHtml(movement.size_name)}</td>
-                <td>${escapeHtml(movement.movement_type)}</td>
-                <td>${escapeHtml(movement.quantity)}</td>
-                <td>${escapeHtml(movement.user_name)}</td>
-            </tr>
-        `).join(''),
-    });
-
-    table.loadData(1);
-
-    window.addEventListener('inventory:updated', async () => {
-        try {
-            const response = await fetch(@json(route('dashboard.stats')), {
-                headers: { Accept: 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
-            });
-            const payload = await response.json();
-            if (!response.ok) return;
-
-            const stats = payload.data;
-            const statMap = {
-                'total-products': stats.total_products,
-                'total-stock': stats.total_stock,
-                'total-reserved': stats.total_reserved,
-                'total-available': stats.total_available,
-                'low-stock-count': stats.low_stock_count,
-                'out-of-stock-count': stats.out_of_stock_count,
-            };
-
-            Object.entries(statMap).forEach(([key, value]) => {
-                const card = document.querySelector(`[data-dashboard-stat="${key}"] .stat-value`);
-                if (card) card.textContent = value;
-            });
-
-            table.loadData(1);
-        } catch (_) {}
-    });
-});
+    window.dashboardConfig = @json($dashboardConfig);
 </script>
+@vite('resources/js/dashboard.js')
 @endpush
