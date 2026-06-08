@@ -1,37 +1,42 @@
 # J4G Inventory System — Complete System Overview
 
-A complete reference document for the J4G Printing Inventory System. Use this as context when working with the codebase (e.g. pasting into ChatGPT or another AI assistant).
+A current reference document for the J4G Printing Inventory System. Use this as context when working with the codebase (e.g. pasting into ChatGPT or another AI assistant).
+
+**Last updated:** reflects dashboard analytics (ApexCharts), product inventory summary/history/sticky grid, and current route/test coverage.
 
 ---
 
 ## 1. Tech Stack
 
-| Layer | Technology | Version |
+| Layer | Technology | Version / Notes |
 |---|---|---|
 | Language | PHP | 8.2+ |
-| Framework | Laravel | 12.x (streamlined skeleton: no `app/Http/Kernel.php`, middleware in `bootstrap/app.php`) |
+| Framework | Laravel | 12.x (streamlined skeleton: middleware in `bootstrap/app.php`, no `app/Http/Kernel.php`) |
 | Auth & Permissions | Spatie laravel-permission | latest |
-| Realtime | Pusher (`pusher/pusher-php-server`) + Laravel broadcasting | — |
-| Testing | Pest 3 + PHPUnit 11 | — |
-| Code style | Laravel Pint 1.x | — |
-| Frontend bundler | Vite 7 | — |
-| CSS | Tailwind CSS v4 (Vite plugin) | — |
-| JS | Plain ES modules (no React/Vue), Axios for AJAX | — |
-| Local dev | Laravel Herd (`https://j4g-inventory-system.test`) | — |
-| DB (dev) | MySQL/MariaDB (via Herd) | — |
+| Realtime | Pusher + Laravel broadcasting | `StockUpdated` event on public channel `inventory` |
+| Testing | Pest 3 + PHPUnit 11 | Feature tests in `tests/Feature/` |
+| Code style | Laravel Pint 1.x | Run `vendor/bin/pint --dirty` |
+| Frontend bundler | Vite 7 | Inputs: `app.css`, `app.js`, `dashboard.js` |
+| CSS | Tailwind CSS v4 | Vite plugin; utility layer in `resources/css/app.css` |
+| JS | Plain ES modules | No React, Vue, Livewire, or Inertia |
+| HTTP client | Axios | Global via `resources/js/bootstrap.js` |
+| Charts | ApexCharts | Used on dashboard via `resources/js/dashboard.js` |
+| Local dev | Laravel Herd | `https://j4g-inventory-system.test` |
+| DB (dev) | MySQL/MariaDB | Via Herd |
 
-No Inertia, no Livewire. Server-rendered Blade + small async-table JS for table interactions.
+Server-rendered Blade pages + async JSON endpoints for tables, grids, and charts.
 
 ---
 
-## 2. Domain Model & Data Architecture
+## 2. Domain Model and Database
 
 ### 2.1 Concept
 
-A **Product** is something the print shop sells (e.g. T-Shirt, Polo Shirt, Reversible Adult).
-Each product has its own set of **sizes** and **colors**, drawn from global **master tables** that are shared across products. Inventory is tracked at the **cell** level: one row per `(product, color, size)` combination.
+A **Product** is something the print shop sells (e.g. T-Shirt, Reversible Adult). Each product has its own **sizes** and **colors**, drawn from global master tables. Inventory is tracked at the **cell** level: one row per `(product, color, size)` combination in `product_color_sizes`.
 
-### 2.2 Tables
+There is **no global inventory list page**. Inventory is managed per product at `/products/{product}/inventory`.
+
+### 2.2 ER Diagram
 
 ```mermaid
 erDiagram
@@ -45,36 +50,36 @@ erDiagram
     users ||--o{ stock_movements : created_by
 
     products {
-      id bigint PK
+      bigint id PK
       string name
       string code "unique, prefix for item_code"
       text description nullable
       string status "active|inactive"
     }
     sizes {
-      id bigint PK
+      bigint id PK
       string name "unique"
     }
     colors {
-      id bigint PK
+      bigint id PK
       string name "unique"
     }
     product_size {
-      id bigint PK
+      bigint id PK
       bigint product_id FK
       bigint size_id FK
       uint sort_order
     }
     product_color {
-      id bigint PK
+      bigint id PK
       bigint product_id FK
       bigint color_id FK
-      string color_code "nullable, per-product, plain text"
-      string item_code "unique, auto-generated CODE-001"
+      string color_code "nullable, plain text per product"
+      string item_code "unique, auto CODE-NNN"
       uint sort_order
     }
     product_color_sizes {
-      id bigint PK
+      bigint id PK
       bigint product_color_id FK
       bigint product_size_id FK
       uint current_stock
@@ -82,7 +87,7 @@ erDiagram
       uint reorder_level
     }
     stock_movements {
-      id bigint PK
+      bigint id PK
       bigint product_color_size_id FK
       string type "IN|OUT|RESERVE|RELEASE|DAMAGED|ADJUSTMENT"
       int quantity
@@ -98,151 +103,77 @@ erDiagram
 
 ### 2.3 Key design decisions
 
-- **Global masters, per-product pivots.** `sizes` and `colors` are tiny shared lookup tables. The pivots (`product_size`, `product_color`) own the per-product attributes (sort_order, color_code, item_code).
-- `color_code` is **plain text** (not a hex picker). Per-product — does NOT carry across when a color is reused on another product (rule: `.cursor/rules/color-fields.mdc`).
-- `item_code` is auto-generated as `{PRODUCT_CODE}-{NNN}` (e.g. `RJA-001`) by `ProductCodeService`. Renaming a product code cascades to rewrite all its colors' item codes (model hook on `Product`).
-- **Cells are auto-seeded by model hooks.** When you attach a new size to a product, a cell row is created for every existing color (and vice-versa) by the `booted()` hook on `ProductSize` / `ProductColor`. Default values: `current_stock = 0`, `reserved_quantity = 0`, `reorder_level = 0`.
-- All inventory mutations go through `InventoryService` inside a DB transaction with `lockForUpdate()` for safety.
-- Every mutation writes a `stock_movements` row (audit log) and broadcasts a `StockUpdated` event via Pusher.
+- **Global masters, per-product pivots.** `sizes` and `colors` are shared lookup tables. Pivots `product_size` and `product_color` hold per-product attributes (`sort_order`, `color_code`, `item_code`).
+- **`color_code` is plain text** (not hex). Per-product only. See `.cursor/rules/color-fields.mdc`.
+- **`item_code`** auto-generated as `{PRODUCT_CODE}-{NNN}` by `ProductCodeService`. Product code renames cascade to all color item codes (model hook on `Product`).
+- **Cells auto-created by model hooks.** Attaching a size creates a cell for every existing color (and vice versa) via `ProductSize::booted()` / `ProductColor::booted()`. Defaults: `current_stock = 0`, `reserved_quantity = 0`, `reorder_level = 0`.
+- **All stock mutations go through `InventoryService`** inside `DB::transaction()` + `lockForUpdate()`.
+- **Every mutation writes a `stock_movements` row** (append-only audit; no `updated_at`) and broadcasts `StockUpdated` after commit.
+- **Inactive products** cannot receive inventory mutations (422 from controllers).
 
 ### 2.4 Stock semantics
 
+Computed by `InventoryService::getStockStatus()`:
+
 - `available_stock = current_stock - reserved_quantity`
-- `status`:
-  - `OUT_OF_STOCK` if `available_stock <= 0`
-  - `LOW_STOCK` if `reorder_level > 0` and `available_stock <= reorder_level`
-  - `OK` otherwise
+- **`OUT_OF_STOCK`** if `available_stock <= 0`
+- **`LOW_STOCK`** if `reorder_level > 0` AND `available_stock <= reorder_level` AND `available_stock > 0`
+- **`OK`** otherwise
 
 ---
 
-## 3. Models (`app/Models/`)
+## 3. Models, Enums, Services
+
+### 3.1 Models (`app/Models/`)
 
 | Model | Table | Notable relations / hooks |
 |---|---|---|
-| `Product` | `products` | `sizes()` HasMany `ProductSize`, `colors()` HasMany `ProductColor`, `cells()` HasManyThrough, `sizeMasters()`/`colorMasters()` BelongsToMany. `booted()` rewrites item_codes when `code` changes. `scopeActive`. |
-| `Size` | `sizes` | `productSizes()` HasMany, `products()` BelongsToMany via `product_size`. |
-| `Color` | `colors` | `productColors()` HasMany, `products()` BelongsToMany via `product_color`. |
-| `ProductSize` | `product_size` | `product()`, `size()`, `cells()`. `booted()::created` auto-creates a cell for every existing color. |
-| `ProductColor` | `product_color` | `product()`, `color()`, `cells()`. `booted()::creating` assigns `item_code` via `ProductCodeService`. `booted()::created` auto-creates a cell for every existing size. |
-| `ProductColorSize` | `product_color_sizes` | `color()`, `size()`, `movements()`. Accessors: `available_stock`, `product`. Methods: `isLowStock()`, `isOutOfStock()`. |
-| `StockMovement` | `stock_movements` | `cell()`, `user()`. `type` cast to `MovementType` enum. No `updated_at`. |
-| `User` | `users` | Spatie `HasRoles` trait. `status` column gates login via `EnsureUserIsActive` middleware. |
+| `Product` | `products` | `sizes()`, `colors()`, `cells()` HasManyThrough. Rewrites item codes when `code` changes. |
+| `Size` | `sizes` | Master size names. |
+| `Color` | `colors` | Master color names. |
+| `ProductSize` | `product_size` | Pivot; `booted()::created` seeds cells for all colors. |
+| `ProductColor` | `product_color` | Pivot; assigns `item_code` on create; seeds cells for all sizes. |
+| `ProductColorSize` | `product_color_sizes` | Cell; `movements()`, `available_stock` accessor. |
+| `StockMovement` | `stock_movements` | `cell()`, `user()`; `type` → `MovementType` enum; append-only. |
+| `User` | `users` | Spatie `HasRoles`; `status` gates login. |
+
+### 3.2 Enums (`app/Enums/`)
+
+- **`MovementType`:** `IN`, `OUT`, `RESERVE`, `RELEASE`, `DAMAGED`, `ADJUSTMENT`
+- **`StockStatus`:** `OK`, `LOW_STOCK`, `OUT_OF_STOCK` (+ `label()`)
+- **`RecordStatus`:** `active` / `inactive` (products, users)
+
+### 3.3 Services (`app/Services/`)
+
+**`InventoryService`** — single entry point for stock mutations:
+
+| Method | Effect |
+|---|---|
+| `stockIn` | Adds to `current_stock` |
+| `stockOut` | Subtracts from `current_stock` (checks available) |
+| `reserve` | Adds to `reserved_quantity` |
+| `release` | Subtracts from `reserved_quantity` |
+| `damage` | Subtracts from `current_stock` |
+| `adjust` | Sets `current_stock`; remarks required; optional `reorder_level` |
+| `getAvailableStock` | `current - reserved` |
+| `getStockStatus` | OK / LOW / OUT |
+| `formatCellForDisplay` | Full DTO for inventory grid |
+| `formatCellResponse` | Compact DTO for mutation API responses |
+
+**`ProductCodeService`** — item code generation, prefix rebuild, name-to-prefix suggestion.
 
 ---
 
-## 4. Enums (`app/Enums/`)
+## 4. Authentication and Permissions
 
-- **`MovementType`** (string): `In`, `Out`, `Reserve`, `Release`, `Damaged`, `Adjustment` → values `IN, OUT, RESERVE, RELEASE, DAMAGED, ADJUSTMENT`.
-- **`StockStatus`** (string): `Ok='OK'`, `LowStock='LOW_STOCK'`, `OutOfStock='OUT_OF_STOCK'`; `label()` returns human label.
-- **`RecordStatus`**: `active|inactive` (used by Product / User).
+### 4.1 Auth flow
 
----
+- Login at `GET/POST /login` (no self-registration).
+- Logout via `POST /logout`.
+- `EnsureUserIsActive` middleware logs out users with `status = inactive`.
 
-## 5. Services (`app/Services/`)
+### 4.2 Permissions (seeded)
 
-### `InventoryService`
-
-The single entry point for all stock mutations. Every method takes a `ProductColorSize $cell`. Internally wraps each call in `DB::transaction()` + `lockForUpdate()`, writes a `StockMovement`, and broadcasts `StockUpdated`.
-
-| Method | Signature | Notes |
-|---|---|---|
-| `stockIn` | `($cell, $quantity, ?$remarks)` | Adds to `current_stock`. |
-| `stockOut` | `($cell, $quantity, ?$remarks)` | Subtracts. Throws if available < quantity. |
-| `reserve` | `($cell, $quantity, ?$remarks)` | Adds to `reserved_quantity`. Throws if available < quantity. |
-| `release` | `($cell, $quantity, ?$remarks)` | Subtracts from `reserved_quantity`. Throws if reserved < quantity. |
-| `damage` | `($cell, $quantity, ?$remarks)` | Subtracts from `current_stock`. Throws if available < quantity. |
-| `adjust` | `($cell, $newQty, $remarks, ?$reorderLevel)` | Sets `current_stock = $newQty`. Remarks REQUIRED. Throws if new < reserved. |
-| `getAvailableStock` | `($cell): int` | `current - reserved`. |
-| `getStockStatus` | `($cell): StockStatus` | OK / LOW / OUT logic. |
-| `formatCellForDisplay` | `($cell): array` | Full DTO for grid rendering. |
-| `formatCellResponse` | `($cell): array` | Compact DTO for API success responses. |
-
-### `ProductCodeService`
-
-- `preview(Product)` / `generate(Product)` → next item code `CODE-NNN` (zero-padded to 3).
-- `rebuildForProduct(string $existingCode, Product)` → swaps prefix when product code changes.
-- `suggestPrefixFromName(string)` → builds suggested prefix from initials (e.g. "Dry Fit Long Sleeves" → "DFLS").
-
----
-
-## 6. Controllers (`app/Http/Controllers/`)
-
-### Public-side
-- `AuthController` — login/logout (no registration).
-- `DashboardController` — stats card + recent movements table.
-- `ProductController` — index/data/create/store/edit/update/destroy, plus `manageInventory` + `inventoryData` (the grid).
-- `ProductSizeController` — per-product sizes (data, suggestions, store, storeBulk, update, destroy). `suggestions()` supports `?exclude_product_id=X`.
-- `ProductColorController` — per-product colors (same shape). Bulk endpoint dedupes by `color_id`.
-- `InventoryController` — `stockIn`, `stockOut`, `reserve`, `release`, `damage`, `adjust`, `bulk`. Each guarded by a permission and validates the product isn't inactive.
-- `ReportController` — `stockHistory(Data|FilterOptions)`, `lowStock(Data)`, `outOfStock(Data)`.
-
-### Admin (`app/Http/Controllers/Admin/`)
-- `UserController` — list/create/edit/update users.
-- `RoleController` — list/edit roles.
-- `SizeController` — CRUD for the master `sizes` table. Delete blocked if attached to any product.
-- `ColorController` — CRUD for the master `colors` table. Delete blocked if attached.
-
----
-
-## 7. Routes (`routes/web.php`)
-
-All auth-protected. Permission middleware enforces per-route access.
-
-### Auth
-- `GET  /login` `POST /login` `POST /logout`
-
-### Dashboard (`view dashboard`)
-- `GET /dashboard` `GET /dashboard/stats` `GET /dashboard/recent-movements/data`
-
-### Products (`view products` for read; `create|edit|delete products` for write)
-- `GET /products` `GET /products/data`
-- `GET /products/create` `POST /products` `GET /products/preview-code`
-- `GET /products/{product}/edit` `PUT /products/{product}` `DELETE /products/{product}`
-
-### Product sizes (per product, `edit products`)
-- `GET  /products/sizes/suggestions[?exclude_product_id=X]`
-- `GET  /products/{product}/sizes/data`
-- `POST /products/{product}/sizes`
-- `POST /products/{product}/sizes/bulk`
-- `PUT  /products/{product}/sizes/{size}`  (size = pivot row id)
-- `DELETE /products/{product}/sizes/{size}`
-
-### Product colors (per product, `edit products`)
-- `GET  /products/colors/suggestions[?exclude_product_id=X]`
-- `GET  /products/{product}/colors/data`
-- `POST /products/{product}/colors`
-- `POST /products/{product}/colors/bulk`
-- `PUT  /products/{product}/colors/{color}`  (color = pivot row id)
-- `DELETE /products/{product}/colors/{color}`
-
-### Inventory (`view inventory` for read; specific permission for each action)
-- `GET  /products/{product}/inventory` `GET /products/{product}/inventory/data`
-- `POST /inventory/stock-in`     (`stock in`)
-- `POST /inventory/stock-out`    (`stock out`)
-- `POST /inventory/reserve`      (`reserve stock`)
-- `POST /inventory/release`      (`release stock`)
-- `POST /inventory/damage`       (`damage stock`)
-- `POST /inventory/adjust`       (`adjust stock`)
-- `POST /inventory/bulk`         (per-action permission resolved inside)
-
-### Reports
-- `GET /reports/stock-history` + `/data` + `/filter-options` (`view stock history`)
-- `GET /reports/low-stock` + `/data` (`view low stock report`)
-- `GET /reports/out-of-stock` + `/data` (`view out of stock report`)
-
-### Admin (prefix `/admin`, name `admin.*`)
-- `users.*`   — `manage users`
-- `roles.*`   — `manage roles`
-- `sizes.*`   — `manage sizes`
-- `colors.*`  — `manage colors`
-
----
-
-## 8. Permissions & Roles
-
-Seeded by `database/seeders/PermissionSeeder.php`.
-
-### Permissions
 ```
 view dashboard, view products, create products, edit products, delete products,
 view inventory, stock in, stock out, reserve stock, release stock, damage stock, adjust stock,
@@ -250,310 +181,399 @@ view stock history, view low stock report, view out of stock report,
 manage users, manage roles, manage permissions, manage sizes, manage colors
 ```
 
-### Roles
-| Role | Permissions |
+### 4.3 Roles
+
+| Role | Access summary |
 |---|---|
-| **Admin** | ALL |
-| **Manager** | All EXCEPT `manage roles`, `manage permissions` |
-| **Staff** | view dashboard, view products, create/edit/delete products, view inventory + all 6 stock actions, all 3 report views |
-| **Viewer** | view dashboard, view products, view inventory, all 3 report views (no mutations) |
+| **Admin** | All permissions |
+| **Manager** | All except `manage roles`, `manage permissions` |
+| **Staff** | Dashboard, full product CRUD, inventory + all stock actions, all reports |
+| **Viewer** | Dashboard, view products/inventory, all reports (read-only) |
 
-### Seeded users (`UserSeeder`, password: `password`)
-- `admin@j4g.test` → Admin
-- `manager@j4g.test` → Manager
-- `staff@j4g.test` → Staff
-- `viewer@j4g.test` → Viewer
+### 4.4 Seeded users (password: `password`)
 
-The `EnsureUserIsActive` middleware (in the `web` group) forces logout if `users.status = 'inactive'`.
+- `admin@j4g.test`, `manager@j4g.test`, `staff@j4g.test`, `viewer@j4g.test`
 
----
+### 4.5 Policies
 
-## 9. Policies (`app/Policies/`)
-
-- `ProductPolicy` — `viewAny`, `view`, `create`, `update`, `delete` mapped to `view/create/edit/delete products` permissions.
-- `SizePolicy` / `ColorPolicy` — `viewAny|create|update|delete` mapped to `manage sizes` / `manage colors`.
+- `ProductPolicy` → product CRUD permissions
+- `SizePolicy` / `ColorPolicy` → `manage sizes` / `manage colors`
 
 ---
 
-## 10. Form Requests (`app/Http/Requests/`)
+## 5. Main User Flows
 
-| Request | Purpose |
+### 5.1 Product setup
+
+1. Create product (`POST /products`) with name, code, status.
+2. On edit page, attach **sizes** and **colors** via async tables + modals.
+3. Model hooks auto-create the color × size matrix (`product_color_sizes` cells).
+4. Open **Manage Inventory** from products list (requires `view inventory`).
+
+### 5.2 Stock mutation flow
+
+```mermaid
+sequenceDiagram
+    participant UI as Blade/JS
+    participant IC as InventoryController
+    participant IS as InventoryService
+    participant DB as MySQL
+    participant PS as Pusher
+
+    UI->>IC: POST /inventory/stock-in (etc.)
+    IC->>IS: stockIn(cell, qty, remarks)
+    IS->>DB: transaction + lockForUpdate
+    IS->>DB: update cell + insert stock_movements
+    IS->>PS: StockUpdated (after commit)
+    IC-->>UI: JSON success + formatCellResponse
+    PS-->>UI: stock.updated event
+    UI->>UI: dispatch inventory:updated
+```
+
+All mutations: single cell modal, or bulk modal (`POST /inventory/bulk`). Bulk returns per-cell success/failure without rolling back successful rows.
+
+### 5.3 Reports flow
+
+- **Stock History** — filterable paginated movements (`view stock history`).
+- **Low Stock** / **Out of Stock** — paginated cell reports with search.
+
+Stock history supports `?product_id=` query param (pre-selects product filter when linked from inventory).
+
+---
+
+## 6. Dashboard and Analytics
+
+**Page:** `GET /dashboard` (`view dashboard`)
+
+**View:** `resources/views/dashboard/index.blade.php`  
+**JS:** `resources/js/dashboard.js` (loaded via `@vite`; imports ApexCharts)
+
+### 6.1 Summary cards (6)
+
+Rendered server-side with icons; refreshed via `GET /dashboard/stats` on `inventory:updated`:
+
+| Card | Metric |
 |---|---|
-| `StoreProductRequest`, `UpdateProductRequest` | Product CRUD validation. |
-| `StoreProductSizeRequest`, `UpdateProductSizeRequest`, `BulkStoreProductSizesRequest` | Per-product size attachment. |
-| `StoreProductColorRequest`, `UpdateProductColorRequest`, `BulkStoreProductColorsRequest` | Per-product color attachment. |
-| `Inventory/StockMovementRequest` | `cell_id`, `quantity`, `remarks?` for stock-in/out/reserve/release/damage. |
-| `Inventory/AdjustStockRequest` | `cell_id`, `new_quantity`, `remarks` (required), `reorder_level?`. |
-| `Inventory/BulkStockMovementRequest` | `product_id`, `action`, `remarks?`, `items[]`. |
-| `TableDataRequest` | Common base for `page`, `per_page`, `search`. Helpers: `pageNumber()`, `perPageCount()`. |
-| `Admin/StoreSizeRequest`, `Admin/UpdateSizeRequest` | Master size CRUD. |
-| `Admin/StoreColorRequest`, `Admin/UpdateColorRequest` | Master color CRUD. |
+| Total Products | Active product count |
+| Total Stock | Sum of `current_stock` across active product cells |
+| Total Reserved | Sum of `reserved_quantity` |
+| Total Available | Total stock − reserved |
+| Low Stock Cells | Cells with `LOW_STOCK` status |
+| Out of Stock Cells | Cells with `OUT_OF_STOCK` status |
+
+Cards link to products, reports, or low/out-of-stock pages when the user has permission.
+
+### 6.2 Chart endpoints
+
+All require `view dashboard`:
+
+| Route | Purpose | Default params |
+|---|---|---|
+| `GET /dashboard/stock-health` | Donut: OK / Low / Out cell counts | — |
+| `GET /dashboard/stock-movement-trend` | Line/area: Stock In, Out, Damaged by day | `days=14` (1–90) |
+| `GET /dashboard/low-stock-by-product` | Stacked bar: top 10 products by issue count | — |
+| `GET /dashboard/active-products` | Horizontal bar: top 10 products by movement count | `days=30` (1–90) |
+| `GET /dashboard/recent-movements/data` | Paginated recent movements table | `per_page` 20/50/100 |
+
+Stock health and low-stock charts use the same SQL status rules as `InventoryService`.
+
+### 6.3 Recent movements table
+
+- Async table via `initAsyncTable` in `dashboard.js`.
+- Movement type column uses colored badges (IN green, OUT red, RESERVE/RELEASE blue, DAMAGED/ADJUSTMENT gray).
+- **View All Stock History** button when user has `view stock history`.
+- Refreshes on `inventory:updated` along with stats and charts.
 
 ---
 
-## 11. Events & Broadcasting
+## 7. Product Inventory Page
 
-- Event: `App\Events\StockUpdated` (`ShouldBroadcast`).
-- Broadcast on private channel `product.{product_id}` (see `routes/channels.php`).
-- Fired by `InventoryService::applyMovement` via `DB::afterCommit`.
-- Payload includes cell info, before/after totals, movement type, user. Frontend listens via Pusher to refresh grids in real time.
+**Page:** `GET /products/{product}/inventory` (`view inventory` + product policy)  
+**View:** `resources/views/products/inventory.blade.php`
 
----
+### 7.1 Layout
 
-## 12. Backup Command
+1. **Summary cards (7)** — loaded from `GET /products/{product}/inventory/data` → `summary` key (totals across all cells, not just current page).
+2. **Color × size grid** — async; colors paginated, sizes loaded in full.
+3. **Search** — debounced filter on color name / item code.
+4. **Per-page** — 20 / 50 / 100 colors per page.
+5. **Sticky header + sticky first column** — CSS in `app.css` (`.inventory-grid-scroll`, `.inventory-grid-table`); see `.cursor/rules/sticky-table.mdc`.
 
-`php artisan inventory:backup [--path=backups/inventory-YYYY-MM-DD-HHMMSS.json]`
+### 7.2 Cell interactions
 
-Writes a single JSON file under `storage/app/` containing all rows from products, sizes, colors, pivots, cells, and stock movements. Implemented in `App\Console\Commands\BackupInventoryCommand` (auto-registered by Laravel 12).
+- Click cell → **Update Stock** modal (permission-gated actions: stock in/out, reserve, release, damage, adjust).
+- Modal shows **Recent Stock History** (last 5 movements) via `GET /inventory/cell/{cell}/history`.
+- **View Full History** links to stock history report filtered by product (`?product_id=`).
+- **Bulk Update** modal for multi-cell operations on current grid page.
+- Inactive products: read-only grid + warning banner.
 
----
-
-## 13. Frontend
-
-### Layout
-- `resources/views/layouts/app.blade.php` — base layout, includes sidebar + navbar.
-- `resources/views/partials/sidebar.blade.php` — collapsible sidebar with sections: Dashboard, Products, Reports, Administration. Links gated by `@can` per permission.
-- `resources/views/partials/navbar.blade.php` — top bar with hamburger + user menu.
-- `resources/views/partials/toast.blade.php` — global toast container (`showToast(msg, type)` JS helper).
-
-### UI components (`resources/views/components/ui/`)
-- `button`, `input`, `select`, `textarea`, `label`, `badge`, `status-pill`, `card`, `page-card` (with optional `toolbar` slot), `page-header`, `async-table`, `table-wrap`, `stat-card`, `empty-state`.
-- Tailwind v4 layers in `resources/css/app.css` define utility classes like `.ui-table`, `.ui-modal-overlay`, `.ui-modal-panel`, `.ui-modal-header/body/footer`, `.ui-row-action`, `.ui-toolbar-form`.
-
-### Pages
-- `dashboard/index.blade.php` — stat cards + recent movements table.
-- `products/index.blade.php` — async products table (search, status filter, per-page, pagination).
-- `products/create.blade.php` — product form with auto-suggest code.
-- `products/edit.blade.php` — product details form + Sizes async-table + Colors async-table, each with add/delete; modals included.
-- `products/inventory.blade.php` — color × size GRID (not paginated server-side), bulk-update modal, per-cell modal for 6 actions.
-- `products/partials/size-modal.blade.php` — TABS: "Pick existing" (master sizes minus already-attached, search) + "Add new" (textarea, one per line). Posts to bulk endpoint.
-- `products/partials/color-modal.blade.php` — same shape, but each picked/new color is sent as `{color_name}`; `color_code` is intentionally blank (editable later from the row).
-- `admin/users/*`, `admin/roles/*`, `admin/sizes/index.blade.php`, `admin/colors/index.blade.php` — async tables + add/edit modal.
-- `reports/stock-history|low-stock|out-of-stock.blade.php` — async tables with filters.
-
-### JS (`resources/js/`)
-- `app.js` — boot file: registers global helpers, sidebar toggle, Pusher client, `postData(url, payload, method='POST')`, `showToast()`, `escapeHtml()`, `getStatusBadgeClasses()`.
-- `data-table.js` — `initAsyncTable({...})` plus `fetchTableData`, `showTableLoading/Empty/Error`, `renderPagination`, `renderStatusPill`, `renderStockBadge`, `debounce`. Exposes them on `window` for inline scripts in Blade pages.
-
-### Conventions
-- All table pages use `initAsyncTable({ tbodyId, paginationId, dataUrl, columnCount, emptyMessage, getParams, getPerPage, renderRows, onLoaded })`.
-- Modals use the `.ui-modal-overlay` + `.ui-modal-panel` class pair (centered, dim backdrop). Backdrop click and `[data-close="modal-id"]` buttons both dismiss.
-- Buttons send AJAX via `postData()`; success/error feedback via `showToast()`.
-
----
-
-## 14. Inventory Grid Data Shape
+### 7.3 Inventory data shape
 
 `GET /products/{product}/inventory/data` returns:
+
 ```json
 {
   "success": true,
   "product": { "id": 1, "name": "T-Shirt", "code": "TSC", "status": "active" },
-  "sizes": [
-    { "id": 12, "size_name": "S", "sort_order": 1 },
-    { "id": 13, "size_name": "M", "sort_order": 2 }
-  ],
-  "colors": [
-    {
-      "id": 7,
-      "color_name": "BLACK",
-      "color_code": null,
-      "item_code": "TSC-001",
-      "sort_order": 1,
-      "cells": {
-        "12": {
-          "id": 101,
-          "color_id": 7, "size_id": 12,
-          "color_name": "BLACK", "color_item_code": "TSC-001", "size_name": "S",
-          "current_stock": 10, "reserved_quantity": 2, "available_stock": 8,
-          "reorder_level": 5, "status": "OK", "status_label": "OK"
-        }
-      }
-    }
-  ]
+  "sizes": [{ "id": 12, "size_name": "S", "sort_order": 1 }],
+  "colors": [{
+    "id": 7, "color_name": "BLACK", "item_code": "TSC-001",
+    "cells": { "12": { "id": 101, "current_stock": 10, "status": "OK", ... } }
+  }],
+  "summary": {
+    "total_colors": 32, "total_skus": 288, "total_stock": 5000,
+    "total_reserved": 120, "total_available": 4880,
+    "low_stock_count": 15, "out_of_stock_count": 8
+  },
+  "pagination": { "current_page": 1, "last_page": 2, "per_page": 20, "total": 32 }
 }
 ```
 
-The grid renders one row per color, one column per size. Cells are keyed by `product_size_id` so the JS just indexes `color.cells[size.id]`.
-
-Bulk POST:
-```
-POST /inventory/bulk
-{
-  "product_id": 1,
-  "action": "stock-in",
-  "remarks": "Restock 2026-05-31",
-  "items": [
-    { "cell_id": 101, "quantity": 5 },
-    { "cell_id": 102, "quantity": 3 }
-  ]
-}
-```
-For `action: "adjust"` each item uses `new_quantity` instead of `quantity`. Returns per-item success/failure so partial failures don't roll back the rest.
+Cells keyed by `product_size_id` in the `cells` object.
 
 ---
 
-## 15. Seeders (`database/seeders/`)
+## 8. Reports
 
-Run order (set in `DatabaseSeeder::run`):
-
-1. `PermissionSeeder` — creates all permissions + 4 roles.
-2. `UserSeeder` — creates the 4 test users.
-3. `ProductSeeder` — creates the 7 production products, attaches sizes & colors via `Size::firstOrCreate` + `Color::firstOrCreate` + pivot rows. Cells auto-created by model hooks. Sets `reorder_level = 5` on all.
-
-Seeded products:
-| Product | Code | # sizes | # colors |
+| Report | Page route | Data route | Permission |
 |---|---|---|---|
-| Reversible Adult | RJA | 7 | 38 |
-| Reversible Kids | RJK | 2 | 10 |
-| T-Shirt | TSC | 9 | 32 |
-| Polo Shirt | PSC | 9 | 5 |
-| Dry Fit Long Sleeves | DFLS | 9 | 7 |
-| Dry Fit Hoodie | DFH | 9 | 1 |
-| Dry Fit Short Sleeves | DFSL | 9 | 14 |
+| Stock History | `/reports/stock-history` | `/reports/stock-history/data` | `view stock history` |
+| Low Stock | `/reports/low-stock` | `/reports/low-stock/data` | `view low stock report` |
+| Out of Stock | `/reports/out-of-stock` | `/reports/out-of-stock/data` | `view out of stock report` |
+
+Stock history filters: movement type, product, user, date range. Filter options via `/reports/stock-history/filter-options`.
+
+All report tables use async pagination (20/50/100) via `TableDataRequest`.
 
 ---
 
-## 16. Tests (`tests/Feature/`, Pest)
+## 9. Admin Modules
 
-Run: `php artisan test --compact` (currently 53 tests, ~167 assertions).
+Prefix `/admin`, name `admin.*`:
+
+| Module | Permission | Features |
+|---|---|---|
+| Users | `manage users` | List, create, edit (async table) |
+| Roles | `manage roles` | List, edit permissions |
+| Sizes | `manage sizes` | Master size CRUD (delete blocked if attached) |
+| Colors | `manage colors` | Master color CRUD (delete blocked if attached) |
+
+---
+
+## 10. Frontend Architecture
+
+### 10.1 Vite entries
+
+```js
+// vite.config.js
+input: ['resources/css/app.css', 'resources/js/app.js', 'resources/js/dashboard.js']
+```
+
+Restart `npm run dev` after adding new Vite inputs.
+
+### 10.2 JS modules
+
+| File | Role |
+|---|---|
+| `bootstrap.js` | Axios global + CSRF defaults |
+| `app.js` | Global helpers: `postData`, `showToast`, sidebar, user menu, notifications, Pusher `initPusher`, `inventory:updated` dispatch |
+| `data-table.js` | `initAsyncTable`, `fetchTableData`, loading/empty/error/pagination, `renderStockBadge`, `debounce`, `escapeHtml` |
+| `dashboard.js` | ApexCharts rendering, movement badges, dashboard config, recent movements table, chart refresh on `inventory:updated` |
+
+### 10.3 CSS (`resources/css/app.css`)
+
+- `.ui-table`, `.ui-modal-*`, toolbar utilities
+- `.inventory-grid-scroll`, `.inventory-grid-table` sticky header/column styles
+
+### 10.4 UI components (`resources/views/components/ui/`)
+
+`button`, `input`, `select`, `textarea`, `label`, `badge`, `status-pill`, `page-header`, `page-card`, `async-table`, `stat-card` (optional `icon` prop), `empty-state`
+
+### 10.5 Async table convention
+
+```js
+initAsyncTable({
+  tbodyId, paginationId, dataUrl, columnCount, emptyMessage,
+  getParams: () => ({ search: '...' }),
+  getPerPage: () => 20,
+  renderRows: (rows) => '...',
+});
+```
+
+**Important:** `TableDataRequest` only allows `per_page` values **20, 50, 100**. Other values (e.g. 10 or 15) return **422 validation errors** and the table shows an error state.
+
+---
+
+## 11. Realtime Flow
+
+- **Event:** `App\Events\StockUpdated` (`ShouldBroadcastNow`)
+- **Channel:** public `inventory` (not per-product)
+- **Event name:** `stock.updated`
+- **Triggered by:** `InventoryService::applyMovement` via `DB::afterCommit`
+- **Frontend:** `app.js` `initPusher()` subscribes to `inventory`, calls `updateVariantRow`, shows toast/notification, dispatches `inventory:updated`
+- **Dashboard/inventory listeners:** refresh stats, charts, tables on `inventory:updated`
+
+Requires Pusher env vars and `broadcasting.default=pusher` for live updates.
+
+---
+
+## 12. Routes Summary
+
+### Removed routes
+
+- Global `inventory.index` / `inventory.data` — inventory is per-product only.
+
+### Current route groups
+
+**Auth:** `/login`, `/logout`
+
+**Dashboard** (`view dashboard`):
+- `/dashboard`, `/dashboard/stats`
+- `/dashboard/stock-health`, `/dashboard/stock-movement-trend`
+- `/dashboard/low-stock-by-product`, `/dashboard/active-products`
+- `/dashboard/recent-movements/data`
+
+**Products** (`view products` read; `create|edit|delete products` write):
+- `/products`, `/products/data`, CRUD routes, `/products/preview-code`
+
+**Product sizes/colors** (`edit products`):
+- Suggestions, data, store, bulk, update, destroy per product
+
+**Inventory** (`view inventory` + action permissions):
+- `/products/{product}/inventory`, `/products/{product}/inventory/data`
+- `GET /inventory/cell/{cell}/history`
+- `POST /inventory/{stock-in|stock-out|reserve|release|damage|adjust|bulk}`
+
+**Reports:** stock-history, low-stock, out-of-stock (+ `/data`, filter-options)
+
+**Admin:** `/admin/users|roles|sizes|colors` (+ data/CRUD)
+
+Full list: `php artisan route:list`
+
+---
+
+## 13. Testing and Verification
+
+### 13.1 Run tests
+
+```bash
+php artisan test --compact
+php artisan test --compact --filter=DashboardChartsTest
+vendor/bin/pint --dirty
+npm run build
+```
+
+Current suite: **64 tests** (includes dashboard stats + charts, product inventory, bulk, concurrency, admin, auth, permissions).
+
+### 13.2 Feature test files
 
 | File | Coverage |
 |---|---|
-| `AuthTest` | Login/logout, inactive user blocked. |
-| `PermissionAccessTest` | Role-based route access. |
-| `DashboardStatsTest` | Stats payload shape. |
-| `AsyncTableDataTest` | Async-table envelope (data + pagination). |
-| `ProductInventoryTest` | Inventory page + data endpoint, stock-in via API, inactive product guard. |
-| `ProductRefactorTest` | Product seeder count, item-code generation, code rename cascade, suggestions (master + exclude), bulk-attach create-and-skip, backup command. |
-| `InventoryServiceTest` | Each service method incl. broadcast + audit row. |
-| `InventoryBulkTest` | Bulk endpoint success / partial failure / permission / validation / adjust-requires-remarks. |
-| `InventoryConcurrencyTest` | `lockForUpdate` prevents overselling. |
-| `SizeAdminTest` | Admin Size/Color CRUD + delete-blocked-when-attached + Staff forbidden. |
-| `ProductCodeTest` | (covered inside ProductRefactorTest) |
-| `CategorySizeTest`, `ExampleTest` | Smoke/legacy. |
+| `AuthTest` | Login/logout, inactive user |
+| `PermissionAccessTest` | Role-based route access |
+| `DashboardStatsTest` | Stats payload + auth |
+| `DashboardChartsTest` | Dashboard page, chart endpoints, 403 for unauthorized |
+| `ProductInventoryTest` | Inventory page/data, summary, cell history, stock actions |
+| `InventoryServiceTest` | All mutation methods + audit + broadcast |
+| `InventoryBulkTest` | Bulk endpoint scenarios |
+| `InventoryConcurrencyTest` | `lockForUpdate` oversell prevention |
+| `ProductRefactorTest` | Seeder, item codes, suggestions, backup |
+| `AsyncTableDataTest` | Pagination envelope |
+| `SizeAdminTest` | Admin size/color CRUD |
+| `PermissionAccessTest` | Route guards |
 
-`tests/Helpers.php` provides `seedBaseData()`, `userWithRole($role)`, `createTestProduct()`, `attachTestSize()`, `attachTestColor()`, `createTestCell()`, `createTestProductWithSizeAndColor()`.
+Helpers in `tests/Helpers.php`: `seedBaseData()`, `userWithRole()`, `createTestProduct()`, `attachTestSize()`, `attachTestColor()`, `createTestCell()`.
+
+### 13.3 Common commands
+
+```bash
+php artisan migrate:fresh --seed --no-interaction
+php artisan inventory:backup
+php artisan route:clear
+npm run dev
+```
 
 ---
 
-## 17. Application Bootstrap (Laravel 12)
+## 14. Current Conventions and Gotchas
 
-`bootstrap/app.php`:
-- Web routes: `routes/web.php`. Console: `routes/console.php`. Channels: `routes/channels.php`.
-- Middleware aliases registered for `permission`, `role`, `role_or_permission` (Spatie).
-- `EnsureUserIsActive` appended to the `web` group.
-- No `app/Console/Kernel.php`; commands auto-register from `app/Console/Commands/`.
+### Pagination
+
+- Default `per_page` = **20**; allowed: **20, 50, 100** only (`TableDataRequest`).
+- Inventory grid paginates **colors** (rows); **sizes** (columns) load in full.
+- Do not use 25 or arbitrary values like 10 or 15 without updating `TableDataRequest` — the API returns **422** and async tables show an error state.
+- `dashboard.js` recent-movements table currently passes `getPerPage: () => 10`; change to **20** (or extend `TableDataRequest`) for that table to load.
+
+### Data loading
+
+- List pages use async `/data` JSON endpoints — no server-rendered `@foreach` tables.
+- Register `/data` routes **before** parameterized `{model}` routes.
+- After mutations, reload current page via JS — avoid full page reload.
+
+### Inventory rules
+
+- Mutations only through `InventoryService` — never direct cell updates in controllers.
+- Inactive products reject inventory mutations (422).
+- `adjust` requires non-empty remarks.
+- Adjusted stock cannot be less than reserved quantity.
+
+### UI rules
+
+- Shopify-admin style: compact, table-first, neutral palette (see `.cursor/rules/shopify-admin-ui.mdc`).
+- `color_code` is plain text, not hex (see `color-fields.mdc`).
+- Sticky grid tables: no padding on scroll container (see `sticky-table.mdc`).
+
+### Cursor / AI rules (`.cursor/rules/`)
+
+- `laravel-boost.mdc` — Laravel conventions, MCP tools
+- `data-loading.mdc`, `table-pagination.mdc` — async tables
+- `shopify-admin-ui.mdc`, `ui-design.mdc` — visual style
+- `color-fields.mdc`, `sticky-table.mdc` — domain-specific UI rules
+
+### Backup
+
+`php artisan inventory:backup` exports products, masters, pivots, cells, and movements to JSON under `storage/app/`.
 
 ---
 
-## 18. File Map (selected)
+## Quick Glossary
+
+| Term | Meaning |
+|---|---|
+| **Cell** | One inventory SKU at `(product, color, size)` in `product_color_sizes` |
+| **Item code** | Unique per product color: `{PRODUCT_CODE}-{NNN}` |
+| **Color code** | Optional plain-text label per product color |
+| **Pivot row** | Row in `product_size` or `product_color` |
+| **Master** | Global `sizes` or `colors` table |
+| **Available stock** | `current_stock - reserved_quantity` |
+| **Reserve** | Locks stock for pending orders without removing from `current_stock` |
+| **Bulk update** | One action applied to multiple cells of one product in a single POST |
+
+---
+
+## File Map (selected)
 
 ```
 app/
-  Console/Commands/BackupInventoryCommand.php
-  Enums/{MovementType, StockStatus, RecordStatus}.php
-  Events/StockUpdated.php
-  Http/
-    Controllers/
-      AuthController, DashboardController, ProductController,
-      ProductSizeController, ProductColorController,
-      InventoryController, ReportController
-      Admin/{UserController, RoleController, SizeController, ColorController}.php
-    Middleware/EnsureUserIsActive.php
-    Requests/
-      StoreProductRequest, UpdateProductRequest,
-      StoreProductSizeRequest, UpdateProductSizeRequest, BulkStoreProductSizesRequest,
-      StoreProductColorRequest, UpdateProductColorRequest, BulkStoreProductColorsRequest,
-      TableDataRequest,
-      Inventory/{StockMovementRequest, AdjustStockRequest, BulkStockMovementRequest}.php
-      Admin/{StoreSizeRequest, UpdateSizeRequest, StoreColorRequest, UpdateColorRequest}.php
-  Models/{Product, Size, Color, ProductSize, ProductColor, ProductColorSize, StockMovement, User}.php
-  Policies/{ProductPolicy, SizePolicy, ColorPolicy}.php
+  Http/Controllers/
+    AuthController, DashboardController, ProductController,
+    ProductSizeController, ProductColorController,
+    InventoryController, ReportController
+    Admin/{User,Role,Size,Color}Controller.php
   Services/{InventoryService, ProductCodeService}.php
-  Support/PaginatedJsonResponse.php
-
-database/
-  migrations/
-    0001_01_01_000000_create_users_table.php
-    2026_05_30_124937_create_permission_tables.php
-    2026_05_31_000000_create_sizes_table.php
-    2026_05_31_000001_create_colors_table.php
-    2026_05_31_000001_create_products_table.php
-    2026_05_31_000002_create_product_sizes_table.php       (table: product_size)
-    2026_05_31_000003_create_product_colors_table.php      (table: product_color)
-    2026_05_31_000004_create_product_color_sizes_table.php
-    2026_05_31_000005_create_stock_movements_table.php
-  seeders/{DatabaseSeeder, PermissionSeeder, UserSeeder, ProductSeeder}.php
+  Events/StockUpdated.php
+  Enums/{MovementType, StockStatus, RecordStatus}.php
+  Models/{Product, Size, Color, ProductSize, ProductColor, ProductColorSize, StockMovement, User}.php
 
 resources/
-  css/app.css                    (Tailwind v4 + ui-* utility layer)
-  js/{app.js, data-table.js}
+  css/app.css
+  js/{app.js, data-table.js, dashboard.js}
   views/
-    layouts/app.blade.php
-    partials/{sidebar, navbar, alerts, toast, status-badge}.blade.php
-    components/ui/*.blade.php
-    auth/login.blade.php
     dashboard/index.blade.php
     products/{index, create, edit, inventory}.blade.php
-    products/partials/{size-modal, color-modal}.blade.php
-    admin/{users, roles, sizes, colors}/index.blade.php
-    admin/users/{create, edit}.blade.php
-    admin/roles/edit.blade.php
     reports/{stock-history, low-stock, out-of-stock}.blade.php
+    admin/{users, roles, sizes, colors}/...
 
-routes/{web.php, channels.php, console.php}
-tests/{Pest.php, TestCase.php, Helpers.php, Feature/*.php}
+routes/web.php
+tests/Feature/{DashboardChartsTest, DashboardStatsTest, ProductInventoryTest, ...}.php
 ```
-
----
-
-## 19. Common Commands
-
-```bash
-# DB
-php artisan migrate:fresh --seed --no-interaction
-
-# Tests
-php artisan test --compact
-php artisan test --compact --filter=InventoryBulkTest
-
-# Code style
-vendor/bin/pint --dirty
-
-# Frontend
-npm run dev          # Vite HMR
-npm run build        # Production bundle
-
-# Backup
-php artisan inventory:backup
-php artisan inventory:backup --path=backups/custom.json
-
-# Routes
-php artisan route:list
-php artisan route:clear
-```
-
----
-
-## 20. Cursor / AI Rules
-
-Project-specific rules live under `.cursor/rules/*.mdc`:
-- `laravel-boost.mdc` — Laravel Boost MCP usage, version pins, style conventions.
-- `color-fields.mdc` — `color_code` is plain text, not hex.
-- `data-loading.mdc` — async-table pattern conventions.
-- `shopify-admin-ui.mdc`, `ui-design.mdc` — visual style guidance.
-
-Workspace also exposes Laravel Boost MCP tools (database-query, tinker, list-artisan-commands, search-docs, browser-logs, etc.) when working inside Cursor.
-
----
-
-## 21. Quick Glossary
-
-- **Cell** — a single inventory row at `(product, color, size)`. Stored in `product_color_sizes`.
-- **Item code** — the unique SKU for a `product_color`, format `{PRODUCT_CODE}-{NNN}`.
-- **Color code** — free-text label per `product_color` (e.g. "PMS 286C"). Optional, per-product.
-- **Pivot row** — a row in `product_size` or `product_color` that ties a global size/color to a product (with `sort_order` and color-specific extras).
-- **Master** — the global `sizes` / `colors` table (just `id`, `name`).
-- **Bulk update** — applying the same action across multiple cells of one product in one POST.
-- **Reserve** — locks part of `current_stock` so it can't be sold/issued, without removing it (used for pending orders). `available = current - reserved`.
