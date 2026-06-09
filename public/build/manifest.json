@@ -1,10 +1,14 @@
 {
-  "_data-table-CJ0eOGEz.js": {
-    "file": "assets/data-table-CJ0eOGEz.js",
+  "_bootstrap-UyRVujZY.js": {
+    "file": "assets/bootstrap-UyRVujZY.js",
+    "name": "bootstrap"
+  },
+  "_data-table-BbGHUeVY.js": {
+    "file": "assets/data-table-BbGHUeVY.js",
     "name": "data-table"
   },
   "resources/css/app.css": {
-    "file": "assets/app-BoOrG7Ud.css",
+    "file": "assets/app-NltHMrL2.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -12,22 +16,33 @@
       "app.css"
     ]
   },
+  "resources/js/ai-assistant.js": {
+    "file": "assets/ai-assistant-DatMfI60.js",
+    "name": "ai-assistant",
+    "src": "resources/js/ai-assistant.js",
+    "isEntry": true,
+    "imports": [
+      "_data-table-BbGHUeVY.js"
+    ]
+  },
   "resources/js/app.js": {
-    "file": "assets/app-BMKDaYL_.js",
+    "file": "assets/app-CIxRnmt8.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "imports": [
-      "_data-table-CJ0eOGEz.js"
+      "_bootstrap-UyRVujZY.js",
+      "_data-table-BbGHUeVY.js"
     ]
   },
   "resources/js/dashboard.js": {
-    "file": "assets/dashboard-DHXOy8_H.js",
+    "file": "assets/dashboard-D9IdI7Pw.js",
     "name": "dashboard",
     "src": "resources/js/dashboard.js",
     "isEntry": true,
     "imports": [
-      "_data-table-CJ0eOGEz.js"
+      "_bootstrap-UyRVujZY.js",
+      "_data-table-BbGHUeVY.js"
     ]
   }
 }

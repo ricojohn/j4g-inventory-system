@@ -1,5 +1,8 @@
 <?php
 
+use App\Services\Ai\GeminiProvider;
+use App\Services\Ai\OpenAiProvider;
+
 return [
 
     /*
@@ -32,6 +35,41 @@ return [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
+        ],
+    ],
+
+    'openai' => [
+        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+        'default_model' => env('OPENAI_DEFAULT_MODEL', 'gpt-4o-mini'),
+        'models' => [
+            'gpt-4o-mini',
+            'gpt-4o',
+            'gpt-4.1-mini',
+        ],
+        'request_timeout' => (int) env('OPENAI_REQUEST_TIMEOUT', 60),
+    ],
+
+    'gemini' => [
+        'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'default_model' => env('GEMINI_DEFAULT_MODEL', 'gemini-1.5-flash'),
+        'models' => [
+            'gemini-1.5-flash',
+            'gemini-2.0-flash',
+            'gemini-2.5-flash',
+        ],
+        'request_timeout' => (int) env('GEMINI_REQUEST_TIMEOUT', 60),
+    ],
+
+    'ai' => [
+        'providers' => [
+            'openai' => [
+                'label' => 'OpenAI',
+                'class' => OpenAiProvider::class,
+            ],
+            'gemini' => [
+                'label' => 'Google Gemini',
+                'class' => GeminiProvider::class,
+            ],
         ],
     ],
 

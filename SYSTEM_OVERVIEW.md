@@ -2,7 +2,7 @@
 
 A current reference document for the J4G Printing Inventory System. Use this as context when working with the codebase (e.g. pasting into ChatGPT or another AI assistant).
 
-**Last updated:** reflects dashboard analytics (ApexCharts), product inventory summary/history/sticky grid, and current route/test coverage.
+**Last updated:** reflects customer & supplier orders, suppliers admin module, and order automation (auto-reserve on save, draft PO on shortage with preview, auto stock-in + auto-reserve on PO receipt, manual fulfillment), in addition to dashboard analytics (ApexCharts) and product inventory.
 
 ---
 
@@ -136,12 +136,20 @@ Computed by `InventoryService::getStockStatus()`:
 | `ProductColorSize` | `product_color_sizes` | Cell; `movements()`, `available_stock` accessor. |
 | `StockMovement` | `stock_movements` | `cell()`, `user()`; `type` → `MovementType` enum; append-only. |
 | `User` | `users` | Spatie `HasRoles`; `status` gates login. |
+| `Supplier` | `suppliers` | `purchaseOrders()`, `creator()`; `scopeActive()`; `status` → `RecordStatus`. |
+| `CustomerOrder` | `customer_orders` | `items()`, `creator()`, `supplierOrder()`; auto `order_number` `CO-NNNN`; `status` → `CustomerOrderStatus`, `customer_source` → `CustomerSource`. |
+| `CustomerOrderItem` | `customer_order_items` | `order()`, `cell()`; tracks `quantity_ordered`, `quantity_reserved`, item `status`. |
+| `SupplierOrder` | `supplier_orders` | `items()`, `supplier()`, `creator()`, `customerOrder()` HasOne; auto `po_number` `PO-NNNN`; `status` → `SupplierOrderStatus`. |
+| `SupplierOrderItem` | `supplier_order_items` | `order()`, `cell()`, `customerOrderItem()`; tracks `quantity_ordered`, `quantity_received`. |
 
 ### 3.2 Enums (`app/Enums/`)
 
 - **`MovementType`:** `IN`, `OUT`, `RESERVE`, `RELEASE`, `DAMAGED`, `ADJUSTMENT`
 - **`StockStatus`:** `OK`, `LOW_STOCK`, `OUT_OF_STOCK` (+ `label()`)
-- **`RecordStatus`:** `active` / `inactive` (products, users)
+- **`RecordStatus`:** `active` / `inactive` (products, users, suppliers)
+- **`CustomerOrderStatus`:** `pending`, `reserved`, `partially_reserved`, `fulfilled`, `cancelled` (+ `label()`)
+- **`SupplierOrderStatus`:** `draft`, `sent`, `partially_received`, `received`, `cancelled` (+ `label()`)
+- **`CustomerSource`:** `facebook`, `instagram`, `viber`, `whatsapp`, `walk_in`, `referral`, `other` (+ `label()`, `icon()`, `badgeColor()`)
 
 ### 3.3 Services (`app/Services/`)
 
@@ -162,6 +170,26 @@ Computed by `InventoryService::getStockStatus()`:
 
 **`ProductCodeService`** — item code generation, prefix rebuild, name-to-prefix suggestion.
 
+**`CustomerOrderService`** — customer order lifecycle (all through `InventoryService`):
+
+| Method | Effect |
+|---|---|
+| `reserveOrder` | Reserves available stock per item (capped at need); sets item + order status |
+| `getShortageItems` | Returns items where `quantity_reserved < quantity_ordered` (with `shortage_qty`) |
+| `fulfillOrder` | Releases then stocks out reserved qty; marks order `fulfilled` (manual action) |
+| `cancelOrder` | Releases reserved qty; marks order `cancelled` |
+| `syncOrderStatus` | Derives order status from item statuses |
+
+**`SupplierOrderService`** — purchase order receipt + downstream reservation:
+
+| Method | Effect |
+|---|---|
+| `receiveItems` | Stocks in received qty per item; updates `quantity_received`; syncs PO status; auto-reserves waiting customer orders (FIFO). Returns `{ reserved_orders }`. Does **not** auto-fulfill. |
+| `syncPoStatus` | Derives PO status (`received` / `partially_received`) from item receipts |
+| `reserveWaitingOrders` | FIFO auto-reserve of pending/partially-reserved customer orders touching the received cells |
+
+**`ProductCellLookup`** (`app/Support/`) — resolves product → color/size cells for cascading selectors; `ensureActiveProducts()` guards mutations against inactive products.
+
 ---
 
 ## 4. Authentication and Permissions
@@ -178,7 +206,9 @@ Computed by `InventoryService::getStockStatus()`:
 view dashboard, view products, create products, edit products, delete products,
 view inventory, stock in, stock out, reserve stock, release stock, damage stock, adjust stock,
 view stock history, view low stock report, view out of stock report,
-manage users, manage roles, manage permissions, manage sizes, manage colors
+manage users, manage roles, manage permissions, manage sizes, manage colors, manage suppliers,
+view orders, create orders, fulfill orders, cancel orders,
+view supplier orders, create supplier orders, receive supplier orders, cancel supplier orders
 ```
 
 ### 4.3 Roles
@@ -186,9 +216,9 @@ manage users, manage roles, manage permissions, manage sizes, manage colors
 | Role | Access summary |
 |---|---|
 | **Admin** | All permissions |
-| **Manager** | All except `manage roles`, `manage permissions` |
-| **Staff** | Dashboard, full product CRUD, inventory + all stock actions, all reports |
-| **Viewer** | Dashboard, view products/inventory, all reports (read-only) |
+| **Manager** | All except `manage roles`, `manage permissions` (includes suppliers + full order/PO actions incl. cancel) |
+| **Staff** | Dashboard, full product CRUD, inventory + all stock actions, all reports, orders (view/create/fulfill), supplier orders (view/create/receive). No cancel; no `manage suppliers`. |
+| **Viewer** | Dashboard, view products/inventory, all reports, view orders + supplier orders (read-only) |
 
 ### 4.4 Seeded users (password: `password`)
 
@@ -238,6 +268,39 @@ All mutations: single cell modal, or bulk modal (`POST /inventory/bulk`). Bulk r
 - **Low Stock** / **Out of Stock** — paginated cell reports with search.
 
 Stock history supports `?product_id=` query param (pre-selects product filter when linked from inventory).
+
+### 5.4 Customer order flow
+
+**Pages:** `/orders` (list), `/orders/create`, `/orders/{order}` (show). Order numbers auto-generate as `CO-NNNN`.
+
+1. Create order with customer info (`customer_name`, `customer_contact`, `customer_source`, `customer_notes`) and line items via cascading product → color → size selectors.
+2. On save, `CustomerOrderService::reserveOrder` **auto-reserves** available stock per item (capped at need). Order status becomes `reserved` / `partially_reserved` / `pending`.
+3. If any item is short and the user can `create supplier orders`, they are redirected to the PO create page prefilled from the shortage (`?from_order_id=`) with a notice. Otherwise the show page displays a shortage banner.
+4. **Fulfill** (`POST /orders/{order}/fulfill`, `fulfill orders`) is a **manual** action: it releases reserved stock then stocks it out. Only `reserved` / `partially_reserved` orders can be fulfilled.
+5. **Cancel** (`cancel orders`) releases all reserved stock and marks the order cancelled.
+
+### 5.5 Supplier order (PO) flow and automation
+
+**Pages:** `/supplier-orders` (list), `/supplier-orders/create`, `/supplier-orders/{po}` (show). PO numbers auto-generate as `PO-NNNN`.
+
+- **Create** (`create supplier orders`) against an active supplier. When opened from a customer-order shortage (`from_order_id`), the create page prefills shortage items and shows an inline, editable **Review Purchase Order** preview before saving. On save, the originating customer order's `supplier_order_id` is linked to the new PO.
+- **Receive delivery** (`POST /supplier-orders/{po}/receive`, `receive supplier orders`): `SupplierOrderService::receiveItems` automatically **stocks in** received quantities, updates `quantity_received`, syncs PO status (`partially_received` / `received`), and **auto-reserves** waiting customer orders touching those cells (FIFO). It does **not** auto-fulfill — staff fulfill manually.
+- **Cancel PO** (`cancel supplier orders`) on draft/sent POs.
+
+```mermaid
+flowchart TD
+  save["Customer order saved"] --> reserve["Auto-reserve available stock"]
+  reserve --> short{"Shortage?"}
+  short -->|"No"| ready["Order reserved - awaiting manual fulfill"]
+  short -->|"Yes"| po["Create PO (preview + edit)"]
+  po --> recv["Receive delivery"]
+  recv --> stockIn["Auto stock-in"]
+  stockIn --> autoRes["Auto-reserve waiting orders FIFO"]
+  autoRes --> ready
+  ready --> fulfill["Staff clicks Fulfill - release + stock-out (manual)"]
+```
+
+**Automation summary:** automated = stock-in (on receipt) and stock-out (on fulfill) plus reservation (on order save and on receipt). Manual = creating POs and fulfilling customer orders.
 
 ---
 
@@ -357,6 +420,7 @@ Prefix `/admin`, name `admin.*`:
 | Roles | `manage roles` | List, edit permissions |
 | Sizes | `manage sizes` | Master size CRUD (delete blocked if attached) |
 | Colors | `manage colors` | Master color CRUD (delete blocked if attached) |
+| Suppliers | `manage suppliers` | Supplier CRUD (name, contact, address, notes, status); inactive suppliers blocked from new POs |
 
 ---
 
@@ -444,9 +508,17 @@ Requires Pusher env vars and `broadcasting.default=pusher` for live updates.
 - `GET /inventory/cell/{cell}/history`
 - `POST /inventory/{stock-in|stock-out|reserve|release|damage|adjust|bulk}`
 
+**Customer orders** (`view orders`; `create|fulfill|cancel orders`):
+- `/orders`, `/orders/data`, `/orders/create`, `/orders/product-cells`, `POST /orders`
+- `/orders/{order}`, `POST /orders/{order}/fulfill`, `POST /orders/{order}/cancel`
+
+**Supplier orders / POs** (`view supplier orders`; `create|receive|cancel supplier orders`):
+- `/supplier-orders`, `/supplier-orders/data`, `/supplier-orders/create`, `/supplier-orders/product-cells`, `POST /supplier-orders`
+- `/supplier-orders/{po}`, `POST /supplier-orders/{po}/receive`, `POST /supplier-orders/{po}/cancel`
+
 **Reports:** stock-history, low-stock, out-of-stock (+ `/data`, filter-options)
 
-**Admin:** `/admin/users|roles|sizes|colors` (+ data/CRUD)
+**Admin:** `/admin/users|roles|sizes|colors|suppliers` (+ data/CRUD)
 
 Full list: `php artisan route:list`
 
@@ -463,7 +535,7 @@ vendor/bin/pint --dirty
 npm run build
 ```
 
-Current suite: **64 tests** (includes dashboard stats + charts, product inventory, bulk, concurrency, admin, auth, permissions).
+Current suite: **92 tests** (includes dashboard stats + charts, product inventory, bulk, concurrency, admin, auth, permissions, customer orders, supplier orders/automation, suppliers admin).
 
 ### 13.2 Feature test files
 
@@ -480,9 +552,11 @@ Current suite: **64 tests** (includes dashboard stats + charts, product inventor
 | `ProductRefactorTest` | Seeder, item codes, suggestions, backup |
 | `AsyncTableDataTest` | Pagination envelope |
 | `SizeAdminTest` | Admin size/color CRUD |
-| `PermissionAccessTest` | Route guards |
+| `SupplierAdminTest` | Suppliers admin CRUD + authorization |
+| `CustomerOrderTest` | Order create, auto-reserve, shortage redirect, fulfill, cancel |
+| `SupplierOrderTest` | PO create/link, receive (stock-in + FIFO auto-reserve), PO status, manual fulfill |
 
-Helpers in `tests/Helpers.php`: `seedBaseData()`, `userWithRole()`, `createTestProduct()`, `attachTestSize()`, `attachTestColor()`, `createTestCell()`.
+Helpers in `tests/Helpers.php`: `seedBaseData()`, `userWithRole()`, `createTestProduct()`, `attachTestSize()`, `attachTestColor()`, `createTestCell()`, `createTestSupplier()`.
 
 ### 13.3 Common commands
 
@@ -548,6 +622,10 @@ npm run dev
 | **Available stock** | `current_stock - reserved_quantity` |
 | **Reserve** | Locks stock for pending orders without removing from `current_stock` |
 | **Bulk update** | One action applied to multiple cells of one product in a single POST |
+| **Customer order (CO)** | Sales order; auto-reserves stock on save, manually fulfilled (`CO-NNNN`) |
+| **Supplier order / PO** | Purchase order to a supplier; auto stock-in on receipt (`PO-NNNN`) |
+| **Shortage** | Order items where `quantity_reserved < quantity_ordered`; basis for draft PO |
+| **Fulfill** | Manual action: release reserved stock then stock it out for a customer order |
 
 ---
 
@@ -558,12 +636,16 @@ app/
   Http/Controllers/
     AuthController, DashboardController, ProductController,
     ProductSizeController, ProductColorController,
-    InventoryController, ReportController
-    Admin/{User,Role,Size,Color}Controller.php
-  Services/{InventoryService, ProductCodeService}.php
+    InventoryController, ReportController,
+    CustomerOrderController, SupplierOrderController
+    Admin/{User,Role,Size,Color,Supplier}Controller.php
+  Services/{InventoryService, ProductCodeService, CustomerOrderService, SupplierOrderService}.php
+  Support/ProductCellLookup.php
   Events/StockUpdated.php
-  Enums/{MovementType, StockStatus, RecordStatus}.php
-  Models/{Product, Size, Color, ProductSize, ProductColor, ProductColorSize, StockMovement, User}.php
+  Enums/{MovementType, StockStatus, RecordStatus,
+         CustomerOrderStatus, SupplierOrderStatus, CustomerSource}.php
+  Models/{Product, Size, Color, ProductSize, ProductColor, ProductColorSize, StockMovement, User,
+          Supplier, CustomerOrder, CustomerOrderItem, SupplierOrder, SupplierOrderItem}.php
 
 resources/
   css/app.css
@@ -572,8 +654,10 @@ resources/
     dashboard/index.blade.php
     products/{index, create, edit, inventory}.blade.php
     reports/{stock-history, low-stock, out-of-stock}.blade.php
-    admin/{users, roles, sizes, colors}/...
+    orders/{index, create, show}.blade.php
+    supplier-orders/{index, create, show}.blade.php
+    admin/{users, roles, sizes, colors, suppliers}/...
 
 routes/web.php
-tests/Feature/{DashboardChartsTest, DashboardStatsTest, ProductInventoryTest, ...}.php
+tests/Feature/{DashboardChartsTest, ProductInventoryTest, CustomerOrderTest, SupplierOrderTest, SupplierAdminTest, ...}.php
 ```
