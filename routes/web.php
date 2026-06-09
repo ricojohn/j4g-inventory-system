@@ -133,6 +133,14 @@ Route::middleware('auth')->group(function () {
         ->middleware('permission:edit products')
         ->name('products.colors.update');
 
+    Route::post('/products/{product}/colors/{color}/image', [ProductColorController::class, 'uploadImage'])
+        ->middleware('permission:edit products')
+        ->name('products.colors.image.upload');
+
+    Route::delete('/products/{product}/colors/{color}/image', [ProductColorController::class, 'deleteImage'])
+        ->middleware('permission:edit products')
+        ->name('products.colors.image.destroy');
+
     Route::delete('/products/{product}/colors/{color}', [ProductColorController::class, 'destroy'])
         ->middleware('permission:edit products')
         ->name('products.colors.destroy');
