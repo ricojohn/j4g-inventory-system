@@ -268,6 +268,8 @@ async function refreshStats(config) {
         'total-available': stats.total_available,
         'low-stock-count': stats.low_stock_count,
         'out-of-stock-count': stats.out_of_stock_count,
+        'open-orders': stats.open_orders,
+        'open-pos': stats.open_pos,
     };
 
     Object.entries(statMap).forEach(([key, value]) => {

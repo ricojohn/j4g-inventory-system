@@ -11,15 +11,19 @@
         $stockHistoryHref = $user?->can('view stock history') ? route('reports.stock-history') : null;
         $lowStockHref = $user?->can('view low stock report') ? route('reports.low-stock') : null;
         $outOfStockHref = $user?->can('view out of stock report') ? route('reports.out-of-stock') : null;
+        $ordersHref = $user?->can('view orders') ? route('orders.index') : null;
+        $supplierOrdersHref = $user?->can('view supplier orders') ? route('supplier-orders.index') : null;
     @endphp
 
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <x-ui.stat-card label="Total Products" icon="products" :value="$totalProducts" :href="$productsHref" data-dashboard-stat="total-products" />
         <x-ui.stat-card label="Total Stock" icon="stock" :value="$totalStock" :href="$productsHref" data-dashboard-stat="total-stock" />
         <x-ui.stat-card label="Total Reserved" icon="reserved" :value="$totalReserved" :href="$stockHistoryHref" data-dashboard-stat="total-reserved" />
         <x-ui.stat-card label="Total Available" icon="available" :value="$totalAvailable" :href="$productsHref" data-dashboard-stat="total-available" />
         <x-ui.stat-card label="Low Stock Cells" icon="low-stock" :value="$lowStockCount" accent="warning" :href="$lowStockHref" data-dashboard-stat="low-stock-count" />
         <x-ui.stat-card label="Out of Stock Cells" icon="out-of-stock" :value="$outOfStockCount" accent="danger" :href="$outOfStockHref" data-dashboard-stat="out-of-stock-count" />
+        <x-ui.stat-card label="Open Orders" icon="orders" :value="$openOrders" :href="$ordersHref" data-dashboard-stat="open-orders" />
+        <x-ui.stat-card label="Open POs" icon="pos" :value="$openPos" :href="$supplierOrdersHref" data-dashboard-stat="open-pos" />
     </div>
 
     <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
