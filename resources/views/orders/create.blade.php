@@ -200,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
             row.innerHTML = `
                 <td>${escapeHtml(item.item_code)}</td>
                 <td>${escapeHtml(item.product_name)}</td>
-                <td>${escapeHtml(item.color_name)}</td>
+                <td>${renderColorImageTrigger({ imageUrl: item.image_url ?? '', colorName: item.color_name, itemCode: item.item_code })}</td>
                 <td>${escapeHtml(item.size_name)}</td>
                 <td>
                     <input type="hidden" name="items[${index}][product_color_size_id]" value="${item.cell_id}" />
@@ -233,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
             product_name: cell.product_name,
             color_name: cell.color_name,
             size_name: cell.size_name,
+            image_url: cell.image_url ?? '',
             quantity: qty,
         });
 

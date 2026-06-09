@@ -1081,7 +1081,7 @@ rect.legend-mouseover-inactive,
             <tr>
                 <td>${window.escapeHtml(e.created_at)}</td>
                 <td>${window.escapeHtml(e.product_name)}</td>
-                <td>${window.escapeHtml(e.color_name)}</td>
+                <td>${window.renderColorImageTrigger({imageUrl:e.image_url??"",colorName:e.color_name??"",itemCode:e.item_code??""})}</td>
                 <td>${window.escapeHtml(e.size_name)}</td>
                 <td>${Gi(e.movement_type)}</td>
                 <td>${window.escapeHtml(e.quantity)}</td>

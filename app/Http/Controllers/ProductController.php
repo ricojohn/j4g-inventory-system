@@ -152,6 +152,7 @@ class ProductController extends Controller
                 'color_name' => $productColor->color->name,
                 'color_code' => $productColor->color_code,
                 'item_code' => $productColor->item_code,
+                'image_url' => $productColor->imageUrl(),
                 'sort_order' => $productColor->sort_order,
                 'cells' => $cells,
             ];

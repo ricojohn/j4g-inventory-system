@@ -200,6 +200,7 @@ class AiOrderDraftService
             'size_name' => $sizeMatch['model']?->size?->name ?? $sizeName,
             'cell_id' => $cell?->id,
             'item_code' => $cell?->color?->item_code,
+            'image_url' => $cell?->color?->imageUrl(),
             'available_stock' => $availableStock,
             'stock_status' => $cell ? app(InventoryService::class)->getStockStatus($cell)->value : null,
             'match_confidence' => round(min(

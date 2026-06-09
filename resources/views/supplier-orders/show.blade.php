@@ -98,7 +98,13 @@
                         <tr>
                             <td>{{ $item->cell->color->item_code }}</td>
                             <td>{{ $item->cell->color->product->name }}</td>
-                            <td>{{ $item->cell->color->color->name }}</td>
+                            <td>
+                                <x-ui.color-image-trigger
+                                    :image-url="$item->cell->color->imageUrl()"
+                                    :color-name="$item->cell->color->color->name"
+                                    :item-code="$item->cell->color->item_code"
+                                />
+                            </td>
                             <td>{{ $item->cell->size->size->name }}</td>
                             <td>{{ $item->quantity_ordered }}</td>
                             <td>{{ $item->quantity_received }}</td>

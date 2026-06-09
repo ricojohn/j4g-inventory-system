@@ -286,6 +286,8 @@ class DashboardController extends Controller
             'movement_type' => $movement->type->value,
             'quantity' => $movement->quantity,
             'user_name' => $movement->user?->name ?? 'System',
+            'item_code' => $movement->cell->color->item_code,
+            'image_url' => $movement->cell->color->imageUrl(),
         ];
     }
 }
