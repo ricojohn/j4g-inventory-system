@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderRows: (rows) => rows.map((variant) => `
             <tr>
                 <td>${escapeHtml(variant.product_name)}</td>
-                <td>${escapeHtml(variant.color)}</td>
+                <td>${renderColorImageTrigger({ imageUrl: variant.image_url ?? '', colorName: variant.color_name ?? variant.color, itemCode: variant.item_code ?? '' })}</td>
                 <td>${escapeHtml(variant.size_name)}</td>
                 <td>${escapeHtml(variant.available_stock)}</td>
                 <td>${escapeHtml(variant.reorder_level)}</td>

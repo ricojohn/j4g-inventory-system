@@ -6,6 +6,7 @@ use App\Http\Requests\BulkStoreProductColorsRequest;
 use App\Http\Requests\StoreProductColorRequest;
 use App\Http\Requests\TableDataRequest;
 use App\Http\Requests\UpdateProductColorRequest;
+use App\Http\Requests\UploadProductColorImageRequest;
 use App\Models\Color;
 use App\Models\Product;
 use App\Models\ProductColor;
@@ -13,6 +14,7 @@ use App\Support\PaginatedJsonResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ProductColorController extends Controller
 {
@@ -165,6 +167,42 @@ class ProductColorController extends Controller
         ]);
     }
 
+    public function uploadImage(UploadProductColorImageRequest $request, Product $product, ProductColor $color): JsonResponse
+    {
+        $this->authorize('update', $product);
+        abort_unless($color->product_id === $product->id, 404);
+
+        if (filled($color->image_path)) {
+            Storage::disk('public')->delete($color->image_path);
+        }
+
+        $path = $request->file('image')->store('product-colors', 'public');
+
+        $color->update(['image_path' => $path]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Image uploaded successfully.',
+            'image_url' => $color->fresh()->imageUrl(),
+        ]);
+    }
+
+    public function deleteImage(Product $product, ProductColor $color): JsonResponse
+    {
+        $this->authorize('update', $product);
+        abort_unless($color->product_id === $product->id, 404);
+
+        if (filled($color->image_path)) {
+            Storage::disk('public')->delete($color->image_path);
+            $color->update(['image_path' => null]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Image removed.',
+        ]);
+    }
+
     public function destroy(Product $product, ProductColor $color): JsonResponse
     {
         $this->authorize('update', $product);
@@ -182,6 +220,10 @@ class ProductColorController extends Controller
                 'success' => false,
                 'message' => 'Cannot delete a color that has stock on hand.',
             ], 422);
+        }
+
+        if (filled($color->image_path)) {
+            Storage::disk('public')->delete($color->image_path);
         }
 
         $color->delete();

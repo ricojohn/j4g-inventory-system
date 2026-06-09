@@ -1,5 +1,6 @@
 import './bootstrap';
 import './data-table';
+import { initColorImageViewModal } from './color-image';
 
 window.postData = async function postData(url, data = {}, method = 'POST') {
     const response = await fetch(url, {
@@ -412,4 +413,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initNotifications();
     initUserMenu();
     initPusher();
+    initColorImageViewModal();
 });

@@ -164,6 +164,8 @@ class ReportController extends Controller
             'after_reserved' => $movement->after_reserved,
             'user_name' => $movement->user?->name ?? 'System',
             'remarks' => $movement->remarks,
+            'item_code' => $movement->cell->color->item_code,
+            'image_url' => $movement->cell->color->imageUrl(),
         ];
     }
 
@@ -185,6 +187,8 @@ class ReportController extends Controller
             'reorder_level' => $cell->reorder_level,
             'status' => $status->value,
             'status_label' => $status->label(),
+            'item_code' => $cell->color->item_code,
+            'image_url' => $cell->color->imageUrl(),
         ];
     }
 
@@ -205,6 +209,8 @@ class ReportController extends Controller
             'reserved_quantity' => $cell->reserved_quantity,
             'status' => $status->value,
             'status_label' => $status->label(),
+            'item_code' => $cell->color->item_code,
+            'image_url' => $cell->color->imageUrl(),
         ];
     }
 }

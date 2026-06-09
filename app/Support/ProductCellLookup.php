@@ -39,10 +39,12 @@ class ProductCellLookup
         return [
             'cell_id' => $cell->id,
             'product_id' => $cell->color->product_id,
+            'product_color_id' => $cell->color->id,
             'product_name' => $cell->color->product->name,
             'item_code' => $cell->color->item_code,
             'color_name' => $cell->color->color->name,
             'size_name' => $cell->size->size->name,
+            'image_url' => $cell->color->imageUrl(),
             'available_stock' => $this->inventoryService->getAvailableStock($cell),
             'current_stock' => $cell->current_stock,
         ];

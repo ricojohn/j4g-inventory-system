@@ -134,6 +134,40 @@
             </form>
         </div>
     </div>
+
+    <div id="color-image-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true">
+        <div class="ui-modal-panel max-w-md overflow-hidden">
+            <div class="ui-modal-header">
+                <h2 class="text-[13px] font-semibold text-gray-900">Color Image</h2>
+                <p id="color-image-subtitle" class="mt-0.5 text-[13px] text-gray-500"></p>
+            </div>
+            <div class="ui-modal-body space-y-3">
+                <input type="hidden" id="color-image-id">
+                <div class="flex items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3">
+                    <img id="color-image-preview" src="" alt="Color preview" class="hidden max-h-64 w-auto rounded object-contain">
+                    <p id="color-image-empty" class="py-10 text-[13px] text-gray-500">No image uploaded yet.</p>
+                </div>
+                @if (! $readOnly)
+                    @can('edit products')
+                        <div>
+                            <x-ui.label for="color-image-file">Choose Image</x-ui.label>
+                            <input id="color-image-file" type="file" accept="image/png,image/jpeg,image/webp" class="block w-full text-[13px] text-gray-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-[13px] file:font-medium file:text-slate-700 hover:file:bg-slate-200">
+                            <p class="mt-1 text-[11px] text-gray-500">JPG, PNG, or WEBP up to 2MB.</p>
+                        </div>
+                    @endcan
+                @endif
+            </div>
+            <div class="ui-modal-footer">
+                <x-ui.button type="button" variant="secondary" data-close="color-image-modal">Close</x-ui.button>
+                @if (! $readOnly)
+                    @can('edit products')
+                        <x-ui.button type="button" variant="danger" id="color-image-remove" class="hidden">Remove</x-ui.button>
+                        <x-ui.button type="button" id="color-image-upload">Upload</x-ui.button>
+                    @endcan
+                @endif
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -142,6 +176,8 @@
         'productId' => $product->id,
         'dataUrl' => route('products.inventory.data', $product),
         'cellHistoryUrlBase' => url('/inventory/cell'),
+        'colorImageUrlBase' => url('/products/'.$product->id.'/colors'),
+        'canEditProducts' => auth()->user()?->can('edit products'),
         'canViewStockHistory' => auth()->user()?->can('view stock history'),
         'stockHistoryUrl' => auth()->user()?->can('view stock history')
             ? route('reports.stock-history', ['product_id' => $product->id])
@@ -254,7 +290,21 @@ document.addEventListener('DOMContentLoaded', () => {
         html += '</tr></thead><tbody>';
 
         colors.forEach(color => {
-            html += `<tr><td class="inventory-sticky-col whitespace-nowrap"><div class="font-medium">${escapeHtml(color.item_code)}</div><div class="text-gray-500">${escapeHtml(color.color_name)}</div></td>`;
+            const thumb = color.image_url
+                ? `<img src="${escapeHtml(color.image_url)}" alt="${escapeHtml(color.color_name)}" class="h-9 w-9 shrink-0 rounded object-cover ring-1 ring-gray-200">`
+                : `<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-gray-100 text-gray-400" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M18 9h.008v.008H18V9zm.75 9.75H5.25A2.25 2.25 0 013 16.5V7.5A2.25 2.25 0 015.25 5.25h13.5A2.25 2.25 0 0121 7.5v9a2.25 2.25 0 01-2.25 2.25z" /></svg>
+                    </span>`;
+            const colorTrigger = `data-color-id="${color.id}" data-color-name="${escapeHtml(color.color_name)}" data-item-code="${escapeHtml(color.item_code)}" data-image-url="${escapeHtml(color.image_url ?? '')}"`;
+            html += `<tr><td class="inventory-sticky-col whitespace-nowrap">
+                    <button type="button" class="color-image-trigger flex items-center gap-2 text-left hover:opacity-80" ${colorTrigger} title="Manage color image">
+                        ${thumb}
+                        <span>
+                            <span class="block font-medium">${escapeHtml(color.item_code)}</span>
+                            <span class="block text-gray-500">${escapeHtml(color.color_name)}</span>
+                        </span>
+                    </button>
+                </td>`;
             sizes.forEach(size => {
                 const cell = color.cells[size.id];
                 if (!cell) {
@@ -275,6 +325,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.getElementById('inventory-grid-wrap')?.addEventListener('click', (e) => {
+        const colorTrigger = e.target.closest('.color-image-trigger');
+        if (colorTrigger) {
+            openColorImageModal(colorTrigger.dataset);
+            return;
+        }
+
         const td = e.target.closest('[data-cell-id]');
         if (!td || config.readOnly) return;
         openCellModal(td.dataset.cellId, td.dataset.cellLabel);
@@ -282,12 +338,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cellModal = document.getElementById('cell-modal');
     const bulkModal = document.getElementById('bulk-modal');
+    const colorImageModal = document.getElementById('color-image-modal');
 
     const closeOverlay = (overlay) => {
         overlay.classList.add('hidden');
     };
 
-    [cellModal, bulkModal].forEach((overlay) => {
+    [cellModal, bulkModal, colorImageModal].forEach((overlay) => {
         if (! overlay) {
             return;
         }
@@ -315,6 +372,105 @@ document.addEventListener('DOMContentLoaded', () => {
         loadCellHistory(cellId);
         cellModal.classList.remove('hidden');
     }
+
+    let currentColorId = null;
+
+    function setColorImagePreview(url) {
+        const preview = document.getElementById('color-image-preview');
+        const empty = document.getElementById('color-image-empty');
+        const removeBtn = document.getElementById('color-image-remove');
+
+        if (url) {
+            preview.src = url;
+            preview.classList.remove('hidden');
+            empty.classList.add('hidden');
+            removeBtn?.classList.remove('hidden');
+        } else {
+            preview.src = '';
+            preview.classList.add('hidden');
+            empty.classList.remove('hidden');
+            removeBtn?.classList.add('hidden');
+        }
+    }
+
+    function openColorImageModal(dataset) {
+        currentColorId = dataset.colorId;
+        document.getElementById('color-image-id').value = dataset.colorId;
+        document.getElementById('color-image-subtitle').textContent = `${dataset.itemCode} · ${dataset.colorName}`;
+
+        const fileInput = document.getElementById('color-image-file');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+
+        setColorImagePreview(dataset.imageUrl || '');
+        colorImageModal.classList.remove('hidden');
+    }
+
+    document.getElementById('color-image-upload')?.addEventListener('click', async () => {
+        const fileInput = document.getElementById('color-image-file');
+        const file = fileInput?.files?.[0];
+
+        if (!file) {
+            showToast('Choose an image first.', 'error');
+            return;
+        }
+
+        const button = document.getElementById('color-image-upload');
+        setButtonLoading(button, true, 'Uploading...');
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        try {
+            const response = await fetch(`${config.colorImageUrlBase}/${currentColorId}/image`, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                },
+                body: formData,
+            });
+
+            const payload = await response.json();
+
+            if (!response.ok) {
+                const message = payload.message
+                    || (payload.errors ? Object.values(payload.errors).flat()[0] : null)
+                    || 'Upload failed.';
+                throw new Error(message);
+            }
+
+            setColorImagePreview(payload.image_url || '');
+            if (fileInput) {
+                fileInput.value = '';
+            }
+            showToast(payload.message || 'Image uploaded.');
+            await loadGrid(currentPage);
+        } catch (error) {
+            showToast(error.message || 'Unable to upload image.', 'error');
+        } finally {
+            setButtonLoading(button, false);
+        }
+    });
+
+    document.getElementById('color-image-remove')?.addEventListener('click', async () => {
+        if (!currentColorId || !confirm('Remove this color image?')) return;
+
+        const button = document.getElementById('color-image-remove');
+        setButtonLoading(button, true, 'Removing...');
+
+        try {
+            const response = await postData(`${config.colorImageUrlBase}/${currentColorId}/image`, {}, 'DELETE');
+            setColorImagePreview('');
+            showToast(response.message || 'Image removed.');
+            await loadGrid(currentPage);
+        } catch (error) {
+            showToast(error.message || 'Unable to remove image.', 'error');
+        } finally {
+            setButtonLoading(button, false);
+        }
+    });
 
     async function loadCellHistory(cellId) {
         const container = document.getElementById('cell-history');

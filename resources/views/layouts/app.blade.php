@@ -39,6 +39,9 @@
         </main>
     @endauth
     @include('partials.toast')
+    @auth
+        <x-ui.color-image-view-modal />
+    @endauth
     @stack('scripts')
 </body>
 </html>

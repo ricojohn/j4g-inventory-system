@@ -1,4 +1,5 @@
 import { escapeHtml } from './data-table';
+import { renderColorImageIconButton } from './color-image';
 
 const SAMPLE_MESSAGE = 'Boss pa order po 10 pcs reversible black white regular need sa Friday';
 
@@ -165,7 +166,17 @@ function renderPreviewRow(item, index, config) {
                     ${productOptions}
                 </select>
             </td>
-            <td><select class="preview-color-select ui-input min-w-32" data-index="${index}"></select></td>
+            <td>
+                <div class="flex items-center gap-2">
+                    <select class="preview-color-select ui-input min-w-32" data-index="${index}"></select>
+                    ${renderColorImageIconButton({
+                        imageUrl: item.image_url ?? '',
+                        colorName: item.color_name ?? '',
+                        itemCode: item.item_code ?? '',
+                        disabled: !item.cell_id,
+                    })}
+                </div>
+            </td>
             <td><select class="preview-size-select ui-input min-w-28" data-index="${index}"></select></td>
             <td><input type="number" min="1" class="preview-qty-input ui-input w-20" data-index="${index}" value="${item.quantity ?? 1}" /></td>
             <td class="available-stock-cell">${escapeHtml(String(item.available_stock ?? '—'))}</td>
@@ -253,6 +264,7 @@ function handleCellSelection(index, config) {
     previewItems[index].cell_id = cell?.cell_id ?? null;
     previewItems[index].available_stock = cell?.available_stock ?? 0;
     previewItems[index].item_code = cell?.item_code ?? null;
+    previewItems[index].image_url = cell?.image_url ?? '';
     previewItems[index].product_name = cell?.product_name ?? previewItems[index].product_name;
     previewItems[index].size_name = cell?.size_name ?? previewItems[index].size_name;
     previewItems[index].matched = Boolean(cell);
@@ -269,6 +281,18 @@ function updateRowStatus(index) {
     const statusCell = row?.querySelector('.status-cell');
     if (statusCell) {
         statusCell.innerHTML = itemStatusBadge(item);
+    }
+
+    const imageButton = row?.querySelector('.color-image-view-trigger');
+    if (imageButton) {
+        const replacement = document.createElement('span');
+        replacement.innerHTML = renderColorImageIconButton({
+            imageUrl: item.image_url ?? '',
+            colorName: item.color_name ?? '',
+            itemCode: item.item_code ?? '',
+            disabled: !item.cell_id,
+        });
+        imageButton.replaceWith(replacement.firstElementChild);
     }
 }
 

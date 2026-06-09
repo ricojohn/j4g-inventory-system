@@ -6,6 +6,7 @@ use App\Services\ProductCodeService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class ProductColor extends Model
 {
@@ -16,6 +17,7 @@ class ProductColor extends Model
         'color_id',
         'color_code',
         'item_code',
+        'image_path',
         'sort_order',
     ];
 
@@ -67,5 +69,14 @@ class ProductColor extends Model
     public function cells(): HasMany
     {
         return $this->hasMany(ProductColorSize::class);
+    }
+
+    public function imageUrl(): ?string
+    {
+        if (blank($this->image_path)) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->image_path);
     }
 }
