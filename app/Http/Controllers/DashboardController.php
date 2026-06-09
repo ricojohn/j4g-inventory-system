@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CustomerOrderStatus;
 use App\Enums\MovementType;
+use App\Enums\SupplierOrderStatus;
 use App\Http\Requests\TableDataRequest;
+use App\Models\CustomerOrder;
 use App\Models\Product;
 use App\Models\ProductColorSize;
 use App\Models\StockMovement;
+use App\Models\SupplierOrder;
 use App\Services\InventoryService;
 use App\Support\PaginatedJsonResponse;
 use Illuminate\Http\JsonResponse;
@@ -34,6 +38,8 @@ class DashboardController extends Controller
             'totalAvailable' => $stats['total_available'],
             'lowStockCount' => $stats['low_stock_count'],
             'outOfStockCount' => $stats['out_of_stock_count'],
+            'openOrders' => $stats['open_orders'],
+            'openPos' => $stats['open_pos'],
         ]);
     }
 
@@ -240,6 +246,12 @@ class DashboardController extends Controller
             'total_available' => $totalStock - $totalReserved,
             'low_stock_count' => $lowStockCount,
             'out_of_stock_count' => $outOfStockCount,
+            'open_orders' => CustomerOrder::query()
+                ->whereNotIn('status', [CustomerOrderStatus::Fulfilled, CustomerOrderStatus::Cancelled])
+                ->count(),
+            'open_pos' => SupplierOrder::query()
+                ->whereNotIn('status', [SupplierOrderStatus::Received, SupplierOrderStatus::Cancelled])
+                ->count(),
         ];
     }
 

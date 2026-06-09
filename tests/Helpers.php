@@ -1,11 +1,13 @@
 <?php
 
 use App\Models\Color;
+use App\Models\Integration;
 use App\Models\Product;
 use App\Models\ProductColor;
 use App\Models\ProductColorSize;
 use App\Models\ProductSize;
 use App\Models\Size;
+use App\Models\Supplier;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 
@@ -25,6 +27,18 @@ function userWithRole(string $role): User
     };
 
     return User::query()->where('email', $email)->firstOrFail();
+}
+
+function createTestSupplier(array $overrides = []): Supplier
+{
+    return Supplier::query()->create(array_merge([
+        'name' => 'Test Supplier '.fake()->unique()->numerify('###'),
+        'contact' => '+63 912 345 6789',
+        'address' => null,
+        'notes' => null,
+        'status' => 'active',
+        'created_by' => userWithRole('Admin')->id,
+    ], $overrides));
 }
 
 function createTestProduct(array $overrides = []): Product
@@ -82,6 +96,26 @@ function createTestCell(int $stock = 100, int $reserved = 0, ?Product $product =
     ]);
 
     return $cell->fresh(['color.product', 'color.color', 'size.size']);
+}
+
+function createTestIntegration(string $provider = 'openai', array $overrides = []): Integration
+{
+    $defaults = [
+        'name' => config("services.ai.providers.{$provider}.label", ucfirst($provider)),
+        'status' => 'active',
+        'credentials' => ['api_key' => 'sk-test-'.fake()->uuid()],
+        'settings' => [
+            'default_model' => config("services.{$provider}.default_model"),
+            'is_default_provider' => $provider === 'openai',
+        ],
+        'connected_at' => now(),
+        'created_by' => userWithRole('Admin')->id,
+    ];
+
+    return Integration::query()->updateOrCreate(
+        ['provider' => $provider],
+        array_merge($defaults, $overrides)
+    );
 }
 
 /** @deprecated Use createTestCell() */

@@ -20,6 +20,18 @@
         @can('view products')
             <a href="{{ route('products.index') }}" class="{{ $linkClass(request()->routeIs('products.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Products</a>
         @endcan
+        @canany(['view orders', 'view supplier orders'])
+            <p class="px-2.5 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">Orders</p>
+        @endcanany
+        @can('view orders')
+            <a href="{{ route('orders.index') }}" class="{{ $linkClass(request()->routeIs('orders.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Customer Orders</a>
+        @endcan
+        @can('use ai assistant')
+            <a href="{{ route('ai.order-assistant.index') }}" class="{{ $linkClass(request()->routeIs('ai.order-assistant.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">AI Order Assistant</a>
+        @endcan
+        @can('view supplier orders')
+            <a href="{{ route('supplier-orders.index') }}" class="{{ $linkClass(request()->routeIs('supplier-orders.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Supplier Orders</a>
+        @endcan
         @canany(['view stock history', 'view low stock report', 'view out of stock report'])
             <p class="px-2.5 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">Reports</p>
         @endcanany
@@ -32,7 +44,7 @@
         @can('view out of stock report')
             <a href="{{ route('reports.out-of-stock') }}" class="{{ $linkClass(request()->routeIs('reports.out-of-stock')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Out of Stock</a>
         @endcan
-        @canany(['manage users', 'manage roles', 'manage sizes', 'manage colors'])
+        @canany(['manage users', 'manage roles', 'manage sizes', 'manage colors', 'manage suppliers', 'manage integrations'])
             <p class="px-2.5 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">Administration</p>
         @endcanany
         @can('manage users')
@@ -46,6 +58,12 @@
         @endcan
         @can('manage colors')
             <a href="{{ route('admin.colors.index') }}" class="{{ $linkClass(request()->routeIs('admin.colors.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Colors</a>
+        @endcan
+        @can('manage suppliers')
+            <a href="{{ route('admin.suppliers.index') }}" class="{{ $linkClass(request()->routeIs('admin.suppliers.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Suppliers</a>
+        @endcan
+        @can('manage integrations')
+            <a href="{{ route('integrations.index') }}" class="{{ $linkClass(request()->routeIs('integrations.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Integrations</a>
         @endcan
     </nav>
 </aside>

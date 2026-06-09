@@ -3,14 +3,19 @@
 use App\Http\Controllers\Admin\ColorController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SizeController;
+use App\Http\Controllers\Admin\SupplierController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\AiOrderAssistantController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CustomerOrderController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ProductColorController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductSizeController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SupplierOrderController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -172,6 +177,126 @@ Route::middleware('auth')->group(function () {
         ->middleware('permission:view inventory')
         ->name('inventory.bulk');
 
+    Route::get('/orders/data', [CustomerOrderController::class, 'data'])
+        ->middleware('permission:view orders')
+        ->name('orders.data');
+
+    Route::get('/orders/product-cells', [CustomerOrderController::class, 'productCells'])
+        ->middleware('permission:create orders')
+        ->name('orders.product-cells');
+
+    Route::get('/orders/create', [CustomerOrderController::class, 'create'])
+        ->middleware('permission:create orders')
+        ->name('orders.create');
+
+    Route::get('/orders', [CustomerOrderController::class, 'index'])
+        ->middleware('permission:view orders')
+        ->name('orders.index');
+
+    Route::post('/orders', [CustomerOrderController::class, 'store'])
+        ->middleware('permission:create orders')
+        ->name('orders.store');
+
+    Route::get('/orders/{order}', [CustomerOrderController::class, 'show'])
+        ->middleware('permission:view orders')
+        ->name('orders.show');
+
+    Route::post('/orders/{order}/fulfill', [CustomerOrderController::class, 'fulfill'])
+        ->middleware('permission:fulfill orders')
+        ->name('orders.fulfill');
+
+    Route::post('/orders/{order}/cancel', [CustomerOrderController::class, 'cancel'])
+        ->middleware('permission:cancel orders')
+        ->name('orders.cancel');
+
+    Route::get('/supplier-orders/data', [SupplierOrderController::class, 'data'])
+        ->middleware('permission:view supplier orders')
+        ->name('supplier-orders.data');
+
+    Route::get('/supplier-orders/product-cells', [SupplierOrderController::class, 'productCells'])
+        ->middleware('permission:create supplier orders')
+        ->name('supplier-orders.product-cells');
+
+    Route::get('/supplier-orders/create', [SupplierOrderController::class, 'create'])
+        ->middleware('permission:create supplier orders')
+        ->name('supplier-orders.create');
+
+    Route::get('/supplier-orders', [SupplierOrderController::class, 'index'])
+        ->middleware('permission:view supplier orders')
+        ->name('supplier-orders.index');
+
+    Route::post('/supplier-orders', [SupplierOrderController::class, 'store'])
+        ->middleware('permission:create supplier orders')
+        ->name('supplier-orders.store');
+
+    Route::get('/supplier-orders/{po}', [SupplierOrderController::class, 'show'])
+        ->middleware('permission:view supplier orders')
+        ->name('supplier-orders.show');
+
+    Route::post('/supplier-orders/{po}/receive', [SupplierOrderController::class, 'receive'])
+        ->middleware('permission:receive supplier orders')
+        ->name('supplier-orders.receive');
+
+    Route::post('/supplier-orders/{po}/cancel', [SupplierOrderController::class, 'cancel'])
+        ->middleware('permission:cancel supplier orders')
+        ->name('supplier-orders.cancel');
+
+    Route::get('/integrations', [IntegrationController::class, 'index'])
+        ->middleware('permission:manage integrations')
+        ->name('integrations.index');
+
+    Route::put('/integrations/{provider}', [IntegrationController::class, 'update'])
+        ->middleware('permission:manage integrations')
+        ->whereIn('provider', ['openai', 'gemini'])
+        ->name('integrations.update');
+
+    Route::post('/integrations/{provider}/test', [IntegrationController::class, 'test'])
+        ->middleware('permission:manage integrations')
+        ->whereIn('provider', ['openai', 'gemini'])
+        ->name('integrations.test');
+
+    Route::delete('/integrations/{provider}', [IntegrationController::class, 'disconnect'])
+        ->middleware('permission:manage integrations')
+        ->whereIn('provider', ['openai', 'gemini'])
+        ->name('integrations.disconnect');
+
+    Route::post('/integrations/{provider}/default', [IntegrationController::class, 'setDefault'])
+        ->middleware('permission:manage integrations')
+        ->whereIn('provider', ['openai', 'gemini'])
+        ->name('integrations.default');
+
+    Route::get('/ai/order-assistant/drafts', [AiOrderAssistantController::class, 'drafts'])
+        ->middleware('permission:use ai assistant')
+        ->name('ai.order-assistant.drafts');
+
+    Route::post('/ai/order-assistant/analyze', [AiOrderAssistantController::class, 'analyze'])
+        ->middleware('permission:use ai assistant')
+        ->name('ai.order-assistant.analyze');
+
+    Route::post('/ai/order-assistant/provider', [AiOrderAssistantController::class, 'setProvider'])
+        ->middleware('permission:manage integrations')
+        ->name('ai.order-assistant.set-provider');
+
+    Route::get('/ai/order-assistant/drafts/{draft}', [AiOrderAssistantController::class, 'show'])
+        ->middleware('permission:use ai assistant')
+        ->name('ai.order-assistant.drafts.show');
+
+    Route::put('/ai/order-assistant/drafts/{draft}', [AiOrderAssistantController::class, 'update'])
+        ->middleware('permission:use ai assistant')
+        ->name('ai.order-assistant.drafts.update');
+
+    Route::post('/ai/order-assistant/drafts/{draft}/convert', [AiOrderAssistantController::class, 'convert'])
+        ->middleware('permission:use ai assistant')
+        ->name('ai.order-assistant.drafts.convert');
+
+    Route::post('/ai/order-assistant/drafts/{draft}/reject', [AiOrderAssistantController::class, 'reject'])
+        ->middleware('permission:use ai assistant')
+        ->name('ai.order-assistant.drafts.reject');
+
+    Route::get('/ai/order-assistant', [AiOrderAssistantController::class, 'index'])
+        ->middleware('permission:use ai assistant')
+        ->name('ai.order-assistant.index');
+
     Route::get('/reports/stock-history/filter-options', [ReportController::class, 'stockHistoryFilterOptions'])
         ->middleware('permission:view stock history')
         ->name('reports.stock-history.filter-options');
@@ -231,6 +356,16 @@ Route::middleware('auth')->group(function () {
             Route::post('/colors', [ColorController::class, 'store'])->name('colors.store');
             Route::put('/colors/{color}', [ColorController::class, 'update'])->name('colors.update');
             Route::delete('/colors/{color}', [ColorController::class, 'destroy'])->name('colors.destroy');
+        });
+
+        Route::middleware('permission:manage suppliers')->group(function () {
+            Route::get('/suppliers/data', [SupplierController::class, 'data'])->name('suppliers.data');
+            Route::get('/suppliers/create', [SupplierController::class, 'create'])->name('suppliers.create');
+            Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
+            Route::post('/suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
+            Route::get('/suppliers/{supplier}/edit', [SupplierController::class, 'edit'])->name('suppliers.edit');
+            Route::put('/suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
+            Route::delete('/suppliers/{supplier}', [SupplierController::class, 'destroy'])->name('suppliers.destroy');
         });
     });
 });
