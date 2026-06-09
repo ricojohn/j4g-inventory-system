@@ -107,6 +107,7 @@ class SupplierOrderController extends Controller
                         'product_name' => $item->cell->color->product->name,
                         'color_name' => $item->cell->color->color->name,
                         'size_name' => $item->cell->size->size->name,
+                        'image_url' => $item->cell->color->imageUrl(),
                     ])
                     ->values()
                     ->all();

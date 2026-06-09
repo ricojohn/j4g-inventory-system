@@ -52,6 +52,7 @@
                 <tr>
                     <th>Date</th>
                     <th>Product</th>
+                    <th>Color</th>
                     <th>Size</th>
                     <th>Type</th>
                     <th>Qty</th>
@@ -109,7 +110,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         tbodyId: 'stock-history-table-body',
         paginationId: 'stock-history-pagination',
         dataUrl: @json(route('reports.stock-history.data')),
-        columnCount: 9,
+        columnCount: 10,
         emptyMessage: 'No movements found.',
         getParams: () => ({
             movement_type: document.getElementById('movement_type')?.value ?? '',
@@ -123,6 +124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <tr>
                 <td>${escapeHtml(movement.created_at)}</td>
                 <td>${escapeHtml(movement.product_name)}</td>
+                <td>${renderColorImageTrigger({ imageUrl: movement.image_url ?? '', colorName: movement.color_name ?? '', itemCode: movement.item_code ?? '' })}</td>
                 <td>${escapeHtml(movement.size_name)}</td>
                 <td>${escapeHtml(movement.movement_type)}</td>
                 <td>${escapeHtml(movement.quantity)}</td>

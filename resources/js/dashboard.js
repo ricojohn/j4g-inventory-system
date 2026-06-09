@@ -237,7 +237,7 @@ function initRecentMovementsTable(config) {
             <tr>
                 <td>${window.escapeHtml(movement.created_at)}</td>
                 <td>${window.escapeHtml(movement.product_name)}</td>
-                <td>${window.escapeHtml(movement.color_name)}</td>
+                <td>${window.renderColorImageTrigger({ imageUrl: movement.image_url ?? '', colorName: movement.color_name ?? '', itemCode: movement.item_code ?? '' })}</td>
                 <td>${window.escapeHtml(movement.size_name)}</td>
                 <td>${renderMovementBadge(movement.movement_type)}</td>
                 <td>${window.escapeHtml(movement.quantity)}</td>
