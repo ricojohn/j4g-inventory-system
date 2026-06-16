@@ -15,7 +15,7 @@
     "name": "data-table"
   },
   "resources/css/app.css": {
-    "file": "assets/app-D8qE03tF.css",
+    "file": "assets/app-oYpwa7zz.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -24,7 +24,7 @@
     ]
   },
   "resources/js/ai-assistant.js": {
-    "file": "assets/ai-assistant-CGf68gp7.js",
+    "file": "assets/ai-assistant-oL5uCREm.js",
     "name": "ai-assistant",
     "src": "resources/js/ai-assistant.js",
     "isEntry": true,

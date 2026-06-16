@@ -105,6 +105,9 @@ class CustomerOrderController extends Controller
                 'customer_contact' => $request->input('customer_contact'),
                 'customer_source' => $request->input('customer_source'),
                 'customer_notes' => $request->input('customer_notes'),
+                'image_path' => $request->hasFile('order_image')
+                    ? $request->file('order_image')->store('order-images', 'public')
+                    : null,
                 'status' => CustomerOrderStatus::Pending,
                 'created_by' => $request->user()->id,
             ]);

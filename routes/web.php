@@ -301,6 +301,14 @@ Route::middleware('auth')->group(function () {
         ->middleware('permission:use ai assistant')
         ->name('ai.order-assistant.drafts.reject');
 
+    Route::post('/ai/order-assistant/drafts/{draft}/image', [AiOrderAssistantController::class, 'uploadImage'])
+        ->middleware('permission:use ai assistant')
+        ->name('ai.order-assistant.drafts.image.upload');
+
+    Route::delete('/ai/order-assistant/drafts/{draft}/image', [AiOrderAssistantController::class, 'deleteImage'])
+        ->middleware('permission:use ai assistant')
+        ->name('ai.order-assistant.drafts.image.destroy');
+
     Route::get('/ai/order-assistant', [AiOrderAssistantController::class, 'index'])
         ->middleware('permission:use ai assistant')
         ->name('ai.order-assistant.index');

@@ -5,7 +5,7 @@
 @section('content')
     <x-ui.page-header title="New Customer Order" />
 
-    <form id="order-form" method="POST" action="{{ route('orders.store') }}" class="space-y-4">
+    <form id="order-form" method="POST" action="{{ route('orders.store') }}" enctype="multipart/form-data" class="space-y-4">
         @csrf
 
         <x-ui.page-card>
@@ -43,6 +43,29 @@
                     <x-ui.textarea id="customer_notes" name="customer_notes" rows="3" placeholder="Delivery address, special requests, packaging preferences, etc.">{{ old('customer_notes') }}</x-ui.textarea>
                     @error('customer_notes')<p class="mt-1 text-[12px] text-red-600">{{ $message }}</p>@enderror
                 </div>
+            </div>
+        </x-ui.page-card>
+
+        <x-ui.page-card>
+            <div class="border-b border-gray-200 px-4 py-3">
+                <h2 class="text-[13px] font-semibold text-gray-900">Order Reference Image</h2>
+                <p class="mt-0.5 text-[12px] text-gray-500">Optional screenshot or photo of the customer's order for summary purposes.</p>
+            </div>
+            <div class="space-y-3 p-4">
+                <div id="order-image-preview" class="hidden">
+                    <img id="order-image-preview-img" src="" alt="Order reference preview" class="max-h-48 rounded-lg border border-gray-200 object-contain" />
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <input
+                        id="order_image"
+                        name="order_image"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        class="block text-[13px] text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-[13px] file:font-medium file:text-gray-700 hover:file:bg-gray-200"
+                    />
+                    <x-ui.button type="button" variant="secondary" id="order-image-remove" class="hidden">Remove</x-ui.button>
+                </div>
+                @error('order_image')<p class="text-[12px] text-red-600">{{ $message }}</p>@enderror
             </div>
         </x-ui.page-card>
 
@@ -129,6 +152,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const sizePicker = document.getElementById('size-picker');
     const lineItemsBody = document.getElementById('line-items-body');
     const emptyRow = document.getElementById('line-items-empty');
+    const orderImageInput = document.getElementById('order_image');
+    const orderImagePreview = document.getElementById('order-image-preview');
+    const orderImagePreviewImg = document.getElementById('order-image-preview-img');
+    const orderImageRemove = document.getElementById('order-image-remove');
+
+    const clearOrderImagePreview = () => {
+        orderImagePreview?.classList.add('hidden');
+        if (orderImagePreviewImg) {
+            orderImagePreviewImg.src = '';
+        }
+        orderImageRemove?.classList.add('hidden');
+        if (orderImageInput) {
+            orderImageInput.value = '';
+        }
+    };
+
+    orderImageInput?.addEventListener('change', () => {
+        const file = orderImageInput.files?.[0];
+        if (!file) {
+            clearOrderImagePreview();
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            if (orderImagePreviewImg) {
+                orderImagePreviewImg.src = event.target?.result ?? '';
+            }
+            orderImagePreview?.classList.remove('hidden');
+            orderImageRemove?.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+    });
+
+    orderImageRemove?.addEventListener('click', clearOrderImagePreview);
 
     const resetColorSize = () => {
         colorPicker.innerHTML = '<option value="">Select product first...</option>';

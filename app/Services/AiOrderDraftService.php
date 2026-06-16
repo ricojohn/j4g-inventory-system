@@ -92,6 +92,7 @@ class AiOrderDraftService
                 'customer_contact' => $reviewedData['customer_contact'] ?? null,
                 'customer_source' => $reviewedData['customer_source'] ?? CustomerSource::Facebook->value,
                 'customer_notes' => $reviewedData['customer_notes'] ?? null,
+                'image_path' => $draft->image_path,
                 'status' => CustomerOrderStatus::Pending,
                 'created_by' => $user->id,
             ]);

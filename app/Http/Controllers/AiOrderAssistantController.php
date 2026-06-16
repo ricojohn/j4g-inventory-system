@@ -9,6 +9,7 @@ use App\Http\Requests\AnalyzeMessageRequest;
 use App\Http\Requests\ConvertDraftRequest;
 use App\Http\Requests\TableDataRequest;
 use App\Http\Requests\UpdateDraftRequest;
+use App\Http\Requests\UploadDraftImageRequest;
 use App\Models\AiOrderDraft;
 use App\Models\Product;
 use App\Services\Ai\AiProviderManager;
@@ -16,6 +17,7 @@ use App\Services\AiOrderDraftService;
 use App\Support\PaginatedJsonResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use RuntimeException;
@@ -63,6 +65,7 @@ class AiOrderAssistantController extends Controller
                     'draftUpdate' => url('/ai/order-assistant/drafts'),
                     'draftConvert' => url('/ai/order-assistant/drafts'),
                     'draftReject' => url('/ai/order-assistant/drafts'),
+                    'draftImage' => url('/ai/order-assistant/drafts'),
                     'productCells' => route('orders.product-cells'),
                     'setProvider' => route('ai.order-assistant.set-provider'),
                 ],
@@ -234,6 +237,51 @@ class AiOrderAssistantController extends Controller
         ]);
     }
 
+    public function uploadImage(UploadDraftImageRequest $request, AiOrderDraft $draft): JsonResponse
+    {
+        if ($draft->status === AiOrderDraftStatus::Converted) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Converted drafts cannot be edited.',
+            ], 422);
+        }
+
+        if (filled($draft->image_path)) {
+            Storage::disk('public')->delete($draft->image_path);
+        }
+
+        $path = $request->file('image')->store('order-images', 'public');
+        $draft->update(['image_path' => $path]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Reference image uploaded.',
+            'image_url' => $draft->fresh()->imageUrl(),
+        ]);
+    }
+
+    public function deleteImage(Request $request, AiOrderDraft $draft): JsonResponse
+    {
+        abort_unless($request->user()?->can('use ai assistant'), 403);
+
+        if ($draft->status === AiOrderDraftStatus::Converted) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Converted drafts cannot be edited.',
+            ], 422);
+        }
+
+        if (filled($draft->image_path)) {
+            Storage::disk('public')->delete($draft->image_path);
+            $draft->update(['image_path' => null]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Reference image removed.',
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -271,6 +319,8 @@ class AiOrderAssistantController extends Controller
             'customer_contact' => $draft->customer_contact,
             'customer_source' => $draft->customer_source?->value,
             'customer_notes' => $draft->customer_notes,
+            'image_path' => $draft->image_path,
+            'image_url' => $draft->imageUrl(),
             'customer_order_id' => $draft->customer_order_id,
             'customer_order_number' => $draft->customerOrder?->order_number,
             'created_at' => $draft->created_at->format('M d, Y H:i'),
