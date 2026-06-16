@@ -103,6 +103,23 @@
         </div>
     </x-ui.page-card>
 
+    @if ($order->imageUrl())
+        <x-ui.page-card class="mb-4">
+            <div class="border-b border-gray-200 px-4 py-3">
+                <h2 class="text-[13px] font-semibold text-gray-900">Order Reference Image</h2>
+            </div>
+            <div class="p-4">
+                <a href="{{ $order->imageUrl() }}" target="_blank" rel="noopener noreferrer">
+                    <img
+                        src="{{ $order->imageUrl() }}"
+                        alt="Order reference image for {{ $order->order_number }}"
+                        class="max-h-64 rounded-lg border border-gray-200 object-contain hover:opacity-90"
+                    />
+                </a>
+            </div>
+        </x-ui.page-card>
+    @endif
+
     <x-ui.page-card>
         <div class="border-b border-gray-200 px-4 py-3">
             <h2 class="text-[13px] font-semibold text-gray-900">Order Items</h2>

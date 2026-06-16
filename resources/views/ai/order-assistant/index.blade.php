@@ -117,6 +117,23 @@
                         </div>
                     </div>
 
+                    <div class="rounded-lg border border-gray-200 p-4">
+                        <x-ui.label for="draft-order-image">Order Reference Image</x-ui.label>
+                        <p class="mt-0.5 text-[12px] text-gray-500">Optional screenshot or photo of the customer's order for summary purposes.</p>
+                        <div id="draft-image-preview" class="mt-3 hidden">
+                            <img id="draft-image-preview-img" src="" alt="Order reference preview" class="max-h-48 rounded-lg border border-gray-200 object-contain" />
+                        </div>
+                        <div class="mt-3 flex flex-wrap items-center gap-2">
+                            <input
+                                id="draft-order-image"
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                class="block text-[13px] text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-[13px] file:font-medium file:text-gray-700 hover:file:bg-gray-200"
+                            />
+                            <x-ui.button type="button" variant="secondary" id="draft-image-remove" class="hidden">Remove</x-ui.button>
+                        </div>
+                    </div>
+
                     <div class="overflow-x-auto">
                         <table class="ui-table w-full">
                             <thead>

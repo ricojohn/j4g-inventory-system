@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class CustomerOrder extends Model
 {
@@ -19,6 +20,7 @@ class CustomerOrder extends Model
         'customer_contact',
         'customer_source',
         'customer_notes',
+        'image_path',
         'status',
         'supplier_order_id',
         'created_by',
@@ -66,5 +68,14 @@ class CustomerOrder extends Model
     public function supplierOrder(): BelongsTo
     {
         return $this->belongsTo(SupplierOrder::class);
+    }
+
+    public function imageUrl(): ?string
+    {
+        if (blank($this->image_path)) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->image_path);
     }
 }

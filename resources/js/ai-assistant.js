@@ -36,6 +36,8 @@ function bindActions(config) {
     document.getElementById('convert-draft-btn')?.addEventListener('click', () => convertDraft(config));
     document.getElementById('reject-draft-btn')?.addEventListener('click', () => rejectDraft(config));
     document.getElementById('provider-select')?.addEventListener('change', () => switchProvider(config));
+    document.getElementById('draft-order-image')?.addEventListener('change', () => uploadDraftImage(config));
+    document.getElementById('draft-image-remove')?.addEventListener('click', () => removeDraftImage(config));
 }
 
 async function switchProvider(config) {
@@ -97,6 +99,8 @@ function hydratePreview(draft, config) {
     document.getElementById('preview-customer-contact').value = draft.customer_contact ?? '';
     document.getElementById('preview-customer-source').value = draft.customer_source ?? 'facebook';
     document.getElementById('preview-customer-notes').value = draft.customer_notes ?? '';
+
+    setDraftImagePreview(draft.image_url ?? '');
 
     previewItems = (draft.matched_json?.items ?? []).map((item) => ({
         ...item,
@@ -436,4 +440,105 @@ function resetWorkspace() {
     document.getElementById('raw-message').value = '';
     document.getElementById('preview-card')?.classList.add('hidden');
     document.getElementById('preview-items-body').innerHTML = '';
+    clearDraftImageInput();
+    setDraftImagePreview('');
+}
+
+function setDraftImagePreview(imageUrl) {
+    const preview = document.getElementById('draft-image-preview');
+    const img = document.getElementById('draft-image-preview-img');
+    const removeBtn = document.getElementById('draft-image-remove');
+
+    if (!imageUrl) {
+        preview?.classList.add('hidden');
+        if (img) {
+            img.src = '';
+        }
+        removeBtn?.classList.add('hidden');
+        return;
+    }
+
+    if (img) {
+        img.src = imageUrl;
+    }
+    preview?.classList.remove('hidden');
+    removeBtn?.classList.remove('hidden');
+}
+
+function clearDraftImageInput() {
+    const input = document.getElementById('draft-order-image');
+    if (input) {
+        input.value = '';
+    }
+}
+
+async function uploadDraftImage(config) {
+    if (!currentDraft?.id) {
+        showToast('Analyze a conversation first.', 'error');
+        clearDraftImageInput();
+        return;
+    }
+
+    const input = document.getElementById('draft-order-image');
+    const file = input?.files?.[0];
+
+    if (!file) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+        const response = await fetch(`${config.urls.draftImage}/${currentDraft.id}/image`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                Accept: 'application/json',
+            },
+            body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Unable to upload image.');
+        }
+
+        currentDraft.image_url = data.image_url;
+        setDraftImagePreview(data.image_url);
+        showToast(data.message || 'Reference image uploaded.');
+    } catch (error) {
+        clearDraftImageInput();
+        showToast(error.message || 'Unable to upload image.', 'error');
+    }
+}
+
+async function removeDraftImage(config) {
+    if (!currentDraft?.id) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${config.urls.draftImage}/${currentDraft.id}/image`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                Accept: 'application/json',
+            },
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Unable to remove image.');
+        }
+
+        currentDraft.image_url = null;
+        clearDraftImageInput();
+        setDraftImagePreview('');
+        showToast(data.message || 'Reference image removed.');
+    } catch (error) {
+        showToast(error.message || 'Unable to remove image.', 'error');
+    }
 }
