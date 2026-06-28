@@ -15,11 +15,18 @@
 
     @unless ($connected)
         <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
-            No AI provider is connected.
+            <p class="font-medium">No AI provider is connected.</p>
+            <p class="mt-1">
+                An admin or manager must connect OpenAI or Google Gemini before the assistant can analyze orders.
+            </p>
             @can('manage integrations')
-                <a href="{{ route('integrations.index') }}" class="font-medium underline">Configure Integrations</a>
+                <p class="mt-2">
+                    Go to
+                    <a href="{{ route('integrations.index') }}" class="font-medium underline">Integrations</a>
+                    (sidebar) → Configure OpenAI or Google Gemini → paste API key → Test Connection → Save → Set as Default.
+                </p>
             @else
-                Ask an admin to configure an AI provider in Integrations.
+                <p class="mt-2">Ask an admin to set this up under <span class="font-medium">Integrations</span> in the sidebar.</p>
             @endcan
         </div>
     @endunless
@@ -159,6 +166,34 @@
                 </div>
             </x-ui.page-card>
         </section>
+    </div>
+
+    <div id="convert-confirm-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="convert-confirm-title">
+        <div class="ui-modal-panel max-w-lg overflow-hidden">
+            <div class="ui-modal-header">
+                <h2 id="convert-confirm-title" class="text-[13px] font-semibold text-gray-900">Confirm Customer Order</h2>
+                <p class="mt-0.5 text-[12px] text-gray-500">These line items will be created on the customer order.</p>
+            </div>
+            <div class="ui-modal-body">
+                <div class="overflow-x-auto">
+                    <table class="ui-table w-full">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Color</th>
+                                <th>Size</th>
+                                <th>Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody id="convert-confirm-items"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="ui-modal-footer">
+                <x-ui.button type="button" variant="secondary" data-close="convert-confirm-modal">Cancel</x-ui.button>
+                <x-ui.button type="button" id="convert-confirm-btn">Confirm Create</x-ui.button>
+            </div>
+        </div>
     </div>
 
     <script>

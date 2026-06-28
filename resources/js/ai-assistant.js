@@ -6,6 +6,8 @@ const SAMPLE_MESSAGE = 'Boss pa order po 10 pcs reversible black white regular n
 let currentDraft = null;
 let previewItems = [];
 let productCellsCache = {};
+let renderPreviewToken = 0;
+let pendingConvertConfig = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     const config = window.aiAssistantConfig;
@@ -38,6 +40,8 @@ function bindActions(config) {
     document.getElementById('provider-select')?.addEventListener('change', () => switchProvider(config));
     document.getElementById('draft-order-image')?.addEventListener('change', () => uploadDraftImage(config));
     document.getElementById('draft-image-remove')?.addEventListener('click', () => removeDraftImage(config));
+    document.getElementById('convert-confirm-btn')?.addEventListener('click', () => executeConvert(config));
+    initConvertConfirmModal();
 }
 
 async function switchProvider(config) {
@@ -74,6 +78,8 @@ async function analyzeMessage(config) {
 
     setButtonLoading(button, true, 'Analyzing...');
     loading?.classList.remove('hidden');
+    productCellsCache = {};
+    renderPreviewToken += 1;
 
     try {
         const response = await postData(config.urls.analyze, { raw_message: message });
@@ -116,6 +122,8 @@ async function renderPreviewItems(config) {
         return;
     }
 
+    const token = ++renderPreviewToken;
+
     tbody.innerHTML = previewItems.map((item, index) => renderPreviewRow(item, index, config)).join('');
 
     for (const select of tbody.querySelectorAll('.preview-product-select')) {
@@ -125,7 +133,14 @@ async function renderPreviewItems(config) {
         });
     }
 
-    for (const select of tbody.querySelectorAll('.preview-color-select, .preview-size-select')) {
+    for (const select of tbody.querySelectorAll('.preview-color-select')) {
+        select.addEventListener('change', (event) => {
+            const rowIndex = Number(event.target.dataset.index);
+            handleColorChange(rowIndex, config);
+        });
+    }
+
+    for (const select of tbody.querySelectorAll('.preview-size-select')) {
         select.addEventListener('change', (event) => {
             const rowIndex = Number(event.target.dataset.index);
             handleCellSelection(rowIndex, config);
@@ -148,9 +163,19 @@ async function renderPreviewItems(config) {
     });
 
     for (let index = 0; index < previewItems.length; index += 1) {
+        if (token !== renderPreviewToken) {
+            return;
+        }
+
         if (previewItems[index].product_id) {
             await ensureProductCells(previewItems[index].product_id, config);
+
+            if (token !== renderPreviewToken) {
+                return;
+            }
+
             populateColorSizeSelects(index, config);
+            handleCellSelection(index, config);
             updateRowStatus(index);
         }
     }
@@ -234,7 +259,17 @@ async function handleProductChange(index, config) {
 
     await ensureProductCells(productId, config);
     populateColorSizeSelects(index, config);
+    handleCellSelection(index, config);
     updateRowStatus(index);
+}
+
+function handleColorChange(index, config) {
+    previewItems[index].cell_id = null;
+    previewItems[index].available_stock = 0;
+    previewItems[index].matched = false;
+    previewItems[index].status = 'needs_review';
+    populateColorSizeSelects(index, config);
+    handleCellSelection(index, config);
 }
 
 function populateColorSizeSelects(index, config) {
@@ -300,18 +335,74 @@ function updateRowStatus(index) {
     }
 }
 
+function collectItemsFromDom() {
+    const tbody = document.getElementById('preview-items-body');
+    if (!tbody) {
+        return [];
+    }
+
+    return [...tbody.querySelectorAll('tr[data-preview-index]')].map((row) => {
+        const index = Number(row.dataset.previewIndex);
+        const productSelect = row.querySelector('.preview-product-select');
+        const colorSelect = row.querySelector('.preview-color-select');
+        const sizeSelect = row.querySelector('.preview-size-select');
+        const qtyInput = row.querySelector('.preview-qty-input');
+        const cellId = Number(sizeSelect?.value ?? 0);
+        const quantity = Number(qtyInput?.value ?? 0);
+        const productId = Number(productSelect?.value ?? 0);
+        const cells = productCellsCache[productId] ?? [];
+        const cell = cells.find((entry) => Number(entry.cell_id) === cellId);
+
+        return {
+            index,
+            product_color_size_id: cellId,
+            quantity,
+            product_name: cell?.product_name ?? productSelect?.selectedOptions?.[0]?.text?.trim() ?? '',
+            color_name: colorSelect?.value ?? cell?.color_name ?? '',
+            size_name: cell?.size_name ?? '',
+        };
+    }).filter((item) => item.product_color_size_id > 0 && item.quantity > 0);
+}
+
+function previewRowsNeedReview() {
+    const tbody = document.getElementById('preview-items-body');
+    if (!tbody) {
+        return false;
+    }
+
+    return [...tbody.querySelectorAll('tr[data-preview-index]')].some((row) => {
+        const cellId = Number(row.querySelector('.preview-size-select')?.value ?? 0);
+        const quantity = Number(row.querySelector('.preview-qty-input')?.value ?? 0);
+
+        return quantity > 0 && !cellId;
+    });
+}
+
 function collectReviewPayload() {
+    const domItems = collectItemsFromDom();
+
+    domItems.forEach((domItem) => {
+        const item = previewItems[domItem.index];
+        if (!item) {
+            return;
+        }
+
+        item.cell_id = domItem.product_color_size_id;
+        item.quantity = domItem.quantity;
+        item.color_name = domItem.color_name;
+        item.size_name = domItem.size_name;
+        item.product_name = domItem.product_name;
+    });
+
     return {
         customer_name: document.getElementById('preview-customer-name')?.value?.trim() ?? '',
         customer_contact: document.getElementById('preview-customer-contact')?.value?.trim() ?? '',
         customer_source: document.getElementById('preview-customer-source')?.value ?? 'facebook',
         customer_notes: document.getElementById('preview-customer-notes')?.value?.trim() ?? '',
-        items: previewItems
-            .filter((item) => item.cell_id && Number(item.quantity) > 0)
-            .map((item) => ({
-                product_color_size_id: item.cell_id,
-                quantity: Number(item.quantity),
-            })),
+        items: domItems.map((item) => ({
+            product_color_size_id: item.product_color_size_id,
+            quantity: item.quantity,
+        })),
         matched_json: { items: previewItems },
     };
 }
@@ -340,34 +431,98 @@ async function convertDraft(config) {
         return;
     }
 
-    const payload = collectReviewPayload();
+    const domItems = collectItemsFromDom();
 
-    if (!payload.customer_name) {
+    if (!document.getElementById('preview-customer-name')?.value?.trim()) {
         showToast('Customer name is required.', 'error');
         return;
     }
 
-    if (previewItems.some((item) => !item.cell_id)) {
+    if (previewRowsNeedReview()) {
         showToast('All items must be matched before creating an order.', 'error');
         return;
     }
 
-    if (payload.items.length === 0) {
+    if (domItems.length === 0) {
         showToast('Add at least one valid line item.', 'error');
         return;
     }
 
+    showConvertConfirmModal(domItems, config);
+}
+
+function initConvertConfirmModal() {
+    const modal = document.getElementById('convert-confirm-modal');
+
+    if (!modal || modal.dataset.initialized === 'true') {
+        return;
+    }
+
+    modal.dataset.initialized = 'true';
+
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeConvertConfirmModal();
+        }
+    });
+
+    modal.querySelectorAll('[data-close]').forEach((button) => {
+        button.addEventListener('click', () => closeConvertConfirmModal());
+    });
+}
+
+function showConvertConfirmModal(items, config) {
+    const modal = document.getElementById('convert-confirm-modal');
+    const tbody = document.getElementById('convert-confirm-items');
+
+    if (!modal || !tbody) {
+        return;
+    }
+
+    tbody.innerHTML = items.map((item) => `
+        <tr>
+            <td>${escapeHtml(item.product_name || '—')}</td>
+            <td>${escapeHtml(item.color_name || '—')}</td>
+            <td>${escapeHtml(item.size_name || '—')}</td>
+            <td>${escapeHtml(String(item.quantity))}</td>
+        </tr>
+    `).join('');
+
+    pendingConvertConfig = config;
+    modal.classList.remove('hidden');
+}
+
+function closeConvertConfirmModal() {
+    document.getElementById('convert-confirm-modal')?.classList.add('hidden');
+    pendingConvertConfig = null;
+}
+
+async function executeConvert(config) {
+    const activeConfig = pendingConvertConfig ?? config;
+
+    if (!currentDraft?.id) {
+        showToast('Analyze a conversation first.', 'error');
+        closeConvertConfirmModal();
+        return;
+    }
+
+    const payload = collectReviewPayload();
+    closeConvertConfirmModal();
+
     const button = document.getElementById('convert-draft-btn');
+    const confirmButton = document.getElementById('convert-confirm-btn');
     setButtonLoading(button, true, 'Creating...');
+    setButtonLoading(confirmButton, true, 'Creating...');
 
     try {
-        const response = await postData(`${config.urls.draftConvert}/${currentDraft.id}/convert`, payload);
+        const response = await postData(`${activeConfig.urls.draftConvert}/${currentDraft.id}/convert`, payload);
         showToast(response.message || 'Customer order created.');
         window.location.href = response.redirect_url;
     } catch (error) {
         showToast(error.message || 'Unable to create customer order.', 'error');
     } finally {
         setButtonLoading(button, false);
+        setButtonLoading(confirmButton, false);
     }
 }
 
@@ -437,6 +592,9 @@ async function openDraft(id, config) {
 function resetWorkspace() {
     currentDraft = null;
     previewItems = [];
+    productCellsCache = {};
+    renderPreviewToken += 1;
+    closeConvertConfirmModal();
     document.getElementById('raw-message').value = '';
     document.getElementById('preview-card')?.classList.add('hidden');
     document.getElementById('preview-items-body').innerHTML = '';

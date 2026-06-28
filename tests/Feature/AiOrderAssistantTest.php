@@ -5,6 +5,8 @@ use App\Enums\CustomerOrderStatus;
 use App\Models\AiOrderDraft;
 use App\Models\CustomerOrder;
 use App\Models\Integration;
+use App\Models\ProductColorSize;
+use App\Services\AiOrderDraftService;
 use Database\Seeders\UserSeeder;
 use Illuminate\Support\Facades\Http;
 
@@ -359,4 +361,91 @@ test('staff can analyze but not manage integrations', function () {
             'provider' => 'openai',
         ])
         ->assertForbidden();
+});
+
+test('convert creates exactly the items sent in request payload', function () {
+    $cell = createTestCell(20);
+    $extraColor = attachTestColor($cell->color->product, 'Gray', 2);
+    $extraCell = ProductColorSize::query()
+        ->where('product_color_id', $extraColor->id)
+        ->where('product_size_id', $cell->product_size_id)
+        ->firstOrFail();
+
+    $draft = AiOrderDraft::factory()->create([
+        'status' => AiOrderDraftStatus::Draft,
+        'customer_name' => 'Juan Dela Cruz',
+        'customer_source' => 'facebook',
+        'matched_json' => [
+            'items' => [
+                ['matched' => true, 'cell_id' => $cell->id, 'quantity' => 5],
+                ['matched' => true, 'cell_id' => $extraCell->id, 'quantity' => 3],
+                ['matched' => true, 'cell_id' => $cell->id, 'quantity' => 10],
+                ['matched' => true, 'cell_id' => $extraCell->id, 'quantity' => 7],
+            ],
+        ],
+        'created_by' => userWithRole('Staff')->id,
+    ]);
+
+    $this->actingAs(userWithRole('Staff'))
+        ->postJson(route('ai.order-assistant.drafts.convert', $draft), [
+            'customer_name' => 'Juan Dela Cruz',
+            'customer_source' => 'facebook',
+            'items' => [
+                ['product_color_size_id' => $cell->id, 'quantity' => 6],
+                ['product_color_size_id' => $cell->id, 'quantity' => 15],
+            ],
+        ])
+        ->assertOk()
+        ->assertJsonPath('success', true);
+
+    $order = CustomerOrder::query()->first();
+
+    expect($order->items)->toHaveCount(2)
+        ->and($order->items->pluck('product_color_size_id')->unique())->toHaveCount(1);
+});
+
+test('color matching prefers exact red black over gray black', function () {
+    $product = createTestProduct(['name' => 'Reversible Adult']);
+    attachTestSize($product, 'Regular', 1);
+    $redBlack = attachTestColor($product, 'RED / BLACK', 1);
+    attachTestColor($product, 'GRAY / BLACK', 2);
+
+    $redCell = ProductColorSize::query()
+        ->where('product_color_id', $redBlack->id)
+        ->firstOrFail();
+
+    $matched = app(AiOrderDraftService::class)->matchParsedItemsToInventory([
+        'items' => [
+            [
+                'product_name' => 'Reversible Adult',
+                'color_name' => 'RED / BLACK',
+                'size_name' => 'Regular',
+                'quantity' => 6,
+            ],
+        ],
+    ]);
+
+    expect($matched['items'][0]['matched'])->toBeTrue()
+        ->and($matched['items'][0]['cell_id'])->toBe($redCell->id)
+        ->and($matched['items'][0]['color_name'])->toBe('RED / BLACK');
+});
+
+test('ambiguous single token color black does not auto match dual tone colors', function () {
+    $product = createTestProduct(['name' => 'Reversible Adult']);
+    attachTestSize($product, 'Regular', 1);
+    attachTestColor($product, 'RED / BLACK', 1);
+    attachTestColor($product, 'GRAY / BLACK', 2);
+
+    $matched = app(AiOrderDraftService::class)->matchParsedItemsToInventory([
+        'items' => [
+            [
+                'product_name' => 'Reversible Adult',
+                'color_name' => 'BLACK',
+                'size_name' => 'Regular',
+                'quantity' => 5,
+            ],
+        ],
+    ]);
+
+    expect($matched['items'][0]['matched'])->toBeFalse();
 });

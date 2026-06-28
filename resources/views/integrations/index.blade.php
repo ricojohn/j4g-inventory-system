@@ -5,6 +5,57 @@
 @section('content')
     <x-ui.page-header title="Integrations" />
 
+    <x-ui.page-card class="mb-4">
+        <div class="border-b border-gray-200 px-4 py-3">
+            <h2 class="text-[13px] font-semibold text-gray-900">Where to set up</h2>
+            <p class="mt-0.5 text-[12px] text-gray-500">Connect OpenAI or Google Gemini so the AI Order Assistant can analyze customer messages.</p>
+        </div>
+        <div class="space-y-3 p-4 text-[13px] text-gray-700">
+            <p>
+                <span class="font-medium text-gray-900">In this app:</span>
+                open <span class="font-medium text-gray-900">Integrations</span> from the sidebar (Admin / Manager only), click
+                <span class="font-medium text-gray-900">Configure</span> on a provider card, then save your API key and model.
+            </p>
+            <p>
+                <span class="font-medium text-gray-900">For staff using AI Order Assistant:</span>
+                go to <a href="{{ route('ai.order-assistant.index') }}" class="font-medium text-gray-900 underline">AI Order Assistant</a>.
+                The default connected provider is used automatically. Admins can switch the default provider here or from the assistant page.
+            </p>
+            <p class="text-[12px] text-gray-500">
+                Tip: after saving, click <span class="font-medium">Test Connection</span>. If both providers are connected, use
+                <span class="font-medium">Set as Default</span> on the one you want the assistant to use.
+            </p>
+        </div>
+    </x-ui.page-card>
+
+    <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <x-ui.page-card>
+            <div class="border-b border-gray-200 px-4 py-3">
+                <h2 class="text-[13px] font-semibold text-gray-900">OpenAI setup</h2>
+            </div>
+            <ol class="list-decimal space-y-2 px-4 py-3 pl-8 text-[13px] text-gray-700">
+                <li>Sign in at <a href="https://platform.openai.com/signup" target="_blank" rel="noopener noreferrer" class="font-medium text-gray-900 underline">platform.openai.com</a>.</li>
+                <li>Open <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="font-medium text-gray-900 underline">API Keys</a> and create a new secret key.</li>
+                <li>On this page, click <span class="font-medium">Configure</span> on the OpenAI card.</li>
+                <li>Paste the API key, choose a model (e.g. <span class="font-medium">gpt-4o-mini</span>), then <span class="font-medium">Test Connection</span> and <span class="font-medium">Save</span>.</li>
+                <li>Optional: click <span class="font-medium">Set as Default</span> to make OpenAI the assistant provider.</li>
+            </ol>
+        </x-ui.page-card>
+
+        <x-ui.page-card>
+            <div class="border-b border-gray-200 px-4 py-3">
+                <h2 class="text-[13px] font-semibold text-gray-900">Google Gemini setup</h2>
+            </div>
+            <ol class="list-decimal space-y-2 px-4 py-3 pl-8 text-[13px] text-gray-700">
+                <li>Sign in with your Google account at <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" class="font-medium text-gray-900 underline">Google AI Studio</a>.</li>
+                <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="font-medium text-gray-900 underline">Get API key</a> and create a key for your project.</li>
+                <li>On this page, click <span class="font-medium">Configure</span> on the Google Gemini card.</li>
+                <li>Paste the API key, choose a model (e.g. <span class="font-medium">gemini-1.5-flash</span>), then <span class="font-medium">Test Connection</span> and <span class="font-medium">Save</span>.</li>
+                <li>Optional: click <span class="font-medium">Set as Default</span> to make Gemini the assistant provider.</li>
+            </ol>
+        </x-ui.page-card>
+    </div>
+
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         @foreach ($providers as $provider)
             <x-ui.page-card>
@@ -58,6 +109,7 @@
             <div class="ui-modal-header">
                 <h2 id="provider-modal-title" class="text-[13px] font-semibold text-gray-900">Configure Integration</h2>
                 <p class="mt-0.5 text-[13px] text-gray-500">Save your API key and default model.</p>
+                <p id="provider-modal-help" class="mt-2 hidden rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-[12px] text-gray-600"></p>
             </div>
             <form id="provider-form" class="space-y-4 p-4">
                 <input type="hidden" id="provider-key" value="">
@@ -118,6 +170,20 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('provider-key').value = providerKey;
         document.getElementById('provider-modal-title').textContent = `${provider.label} Integration`;
         document.getElementById('provider-api-key').value = '';
+
+        const help = document.getElementById('provider-modal-help');
+        if (help) {
+            if (providerKey === 'openai') {
+                help.innerHTML = 'Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="font-medium underline">platform.openai.com/api-keys</a>. Paste it below, test, then save.';
+                help.classList.remove('hidden');
+            } else if (providerKey === 'gemini') {
+                help.innerHTML = 'Get your API key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="font-medium underline">Google AI Studio</a>. Paste it below, test, then save.';
+                help.classList.remove('hidden');
+            } else {
+                help.classList.add('hidden');
+                help.textContent = '';
+            }
+        }
 
         const modelSelect = document.getElementById('provider-model');
         modelSelect.innerHTML = provider.models.map((model) => {
