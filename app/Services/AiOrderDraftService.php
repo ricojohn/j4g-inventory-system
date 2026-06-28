@@ -320,6 +320,31 @@ class AiOrderDraftService
             return 1.0;
         }
 
+        $needleTokens = array_values(array_filter(explode(' ', $needle)));
+        $haystackTokens = array_values(array_filter(explode(' ', $haystack)));
+
+        if (count($needleTokens) > 1) {
+            $allNeedleTokensPresent = collect($needleTokens)->every(
+                fn (string $token) => str_contains($haystack, $token)
+            );
+
+            if ($allNeedleTokensPresent) {
+                if (str_contains($haystack, $needle) || str_contains($needle, $haystack)) {
+                    return 0.95;
+                }
+
+                return 0.9;
+            }
+
+            similar_text($needle, $haystack, $percent);
+
+            return round($percent / 100, 2);
+        }
+
+        if (count($haystackTokens) > 1) {
+            return 0.75;
+        }
+
         if (str_contains($haystack, $needle) || str_contains($needle, $haystack)) {
             return 0.9;
         }

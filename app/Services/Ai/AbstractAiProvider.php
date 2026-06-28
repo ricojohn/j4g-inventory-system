@@ -121,6 +121,8 @@ Rules:
 - intent is create_order when the customer wants to order products.
 - customer_source should be facebook unless clearly another channel (instagram, viber, whatsapp, walk_in, referral, other).
 - items must list every distinct product/color/size/qty mentioned.
+- Only include colors explicitly named in the customer message. Do not infer or add additional color variants.
+- When multiple sizes are ordered for the same color, create one item per size with the same color_name (e.g. "6 regular, 15 upsize red black" → 2 items, both color_name "RED / BLACK").
 - quantity must be a positive integer when known; use missing_fields if unknown.
 - If product_name, color_name, size_name, or quantity is missing or ambiguous, add to missing_fields (e.g. "items[0].size_name").
 - confidence is 0.0 to 1.0 reflecting extraction certainty.
