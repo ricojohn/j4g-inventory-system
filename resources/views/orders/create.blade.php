@@ -75,12 +75,12 @@
 
         <x-ui.page-card>
             <div class="border-b border-gray-200 px-4 py-3">
-                <h2 class="text-[13px] font-semibold text-gray-900">Order Reference Image</h2>
-                <p class="mt-0.5 text-[12px] text-gray-500">Optional screenshot or photo of the customer's order for summary purposes.</p>
+                <h2 class="text-[13px] font-semibold text-gray-900">Layout Image</h2>
+                <p class="mt-0.5 text-[12px] text-gray-500">Optional design layout for this order. Stored as layout v1 and can be revised later.</p>
             </div>
             <div class="space-y-3 p-4">
                 <div id="order-image-preview" class="hidden">
-                    <img id="order-image-preview-img" src="" alt="Order reference preview" class="max-h-48 rounded-lg border border-gray-200 object-contain" />
+                    <img id="order-image-preview-img" src="" alt="Layout preview" class="max-h-48 rounded-lg border border-gray-200 object-contain" />
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <input

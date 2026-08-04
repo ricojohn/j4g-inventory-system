@@ -26,21 +26,49 @@
         <a href="{{ route('orders.index') }}" class="text-[13px] font-medium text-gray-500 hover:text-gray-800">← Back to orders</a>
     </div>
 
+    @php
+        $headerLayout = $order->approvedLayout() ?? $order->latestLayout();
+        $headerLayoutUrl = $headerLayout?->fileUrl() ?? $order->imageUrl();
+    @endphp
+
     <div class="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-                <p class="text-[11px] font-medium uppercase tracking-wide text-gray-400">Customer order</p>
-                <h1 class="mt-1 text-xl font-semibold tracking-tight text-gray-900">{{ $order->order_number }}</h1>
-                <p class="mt-0.5 text-sm text-gray-500">
-                    @if ($order->customer)
-                        <a href="{{ route('customers.show', $order->customer) }}" class="text-brand hover:underline">{{ $order->customer_name }}</a>
-                    @else
-                        {{ $order->customer_name }}
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex min-w-0 flex-1 items-start gap-4">
+                @if ($headerLayoutUrl)
+                    <a
+                        href="{{ $headerLayoutUrl }}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="group relative shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+                        title="{{ $headerLayout ? 'v'.$headerLayout->version.' — '.$headerLayout->title : 'Layout image' }}"
+                    >
+                        <img
+                            src="{{ $headerLayoutUrl }}"
+                            alt="Order layout"
+                            class="h-20 w-20 object-cover transition group-hover:opacity-90 sm:h-24 sm:w-24"
+                        />
+                    </a>
+                @endif
+                <div class="min-w-0">
+                    <p class="text-[11px] font-medium uppercase tracking-wide text-gray-400">Customer order</p>
+                    <h1 class="mt-1 text-xl font-semibold tracking-tight text-gray-900">{{ $order->order_number }}</h1>
+                    <p class="mt-0.5 text-sm text-gray-500">
+                        @if ($order->customer)
+                            <a href="{{ route('customers.show', $order->customer) }}" class="text-brand hover:underline">{{ $order->customer_name }}</a>
+                        @else
+                            {{ $order->customer_name }}
+                        @endif
+                        @if ($order->customer_contact)
+                            · {{ $order->customer_contact }}
+                        @endif
+                    </p>
+                    @if ($headerLayout)
+                        <p class="mt-1 text-[12px] text-gray-500">
+                            Layout v{{ $headerLayout->version }} · {{ $headerLayout->status->label() }}
+                            <a href="{{ route('orders.show', ['order' => $order, 'tab' => 'layouts']) }}" class="ml-1 font-medium text-brand hover:underline">Manage</a>
+                        </p>
                     @endif
-                    @if ($order->customer_contact)
-                        · {{ $order->customer_contact }}
-                    @endif
-                </p>
+                </div>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <x-ui.status-pill :status="$order->status->value">{{ $order->status->label() }}</x-ui.status-pill>
@@ -158,7 +186,7 @@
                 </x-ui.page-card>
             </div>
 
-            <div class="lg:col-span-2">
+            <div class="lg:col-span-2 space-y-4">
                 <x-ui.page-card>
                     <div class="border-b border-gray-200 px-4 py-3">
                         <h2 class="text-[13px] font-semibold text-gray-900">Customer</h2>
@@ -192,6 +220,54 @@
                         @endif
                     </div>
                 </x-ui.page-card>
+
+                @php
+                    $layout = $order->approvedLayout() ?? $order->latestLayout();
+                    $layoutUrl = $layout?->fileUrl() ?? $order->imageUrl();
+                @endphp
+                @if ($layoutUrl)
+                    <x-ui.page-card>
+                        <div class="border-b border-gray-200 px-4 py-3">
+                            <h2 class="text-[13px] font-semibold text-gray-900">Layout Image</h2>
+                            @if ($layout)
+                                <p class="mt-0.5 text-[12px] text-gray-500">
+                                    v{{ $layout->version }} — {{ $layout->title }} · {{ $layout->status->label() }}
+                                </p>
+                            @endif
+                        </div>
+                        <div class="p-4">
+                            <a href="{{ $layoutUrl }}" target="_blank" rel="noopener noreferrer" class="block">
+                                <img
+                                    src="{{ $layoutUrl }}"
+                                    alt="Order layout"
+                                    class="max-h-64 w-full rounded-lg border border-gray-200 object-contain"
+                                />
+                            </a>
+                            <div class="mt-3">
+                                <a href="{{ route('orders.show', ['order' => $order, 'tab' => 'layouts']) }}" class="text-[12px] font-medium text-brand hover:underline">
+                                    Manage layouts →
+                                </a>
+                            </div>
+                        </div>
+                    </x-ui.page-card>
+                @elseif ($layout)
+                    <x-ui.page-card>
+                        <div class="border-b border-gray-200 px-4 py-3">
+                            <h2 class="text-[13px] font-semibold text-gray-900">Layout Image</h2>
+                            <p class="mt-0.5 text-[12px] text-gray-500">
+                                v{{ $layout->version }} — {{ $layout->title }} · {{ $layout->status->label() }}
+                            </p>
+                        </div>
+                        <div class="p-4">
+                            <p class="text-[13px] text-amber-800">Layout file is missing from storage. Re-upload it from the Layouts tab.</p>
+                            <div class="mt-3">
+                                <a href="{{ route('orders.show', ['order' => $order, 'tab' => 'layouts']) }}" class="text-[12px] font-medium text-brand hover:underline">
+                                    Manage layouts →
+                                </a>
+                            </div>
+                        </div>
+                    </x-ui.page-card>
+                @endif
             </div>
         </div>
     @elseif ($activeTab === 'items')

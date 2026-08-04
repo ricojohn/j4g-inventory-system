@@ -12,7 +12,7 @@ enum OrderPaymentStatus: string
     {
         return match ($this) {
             self::Unpaid => 'Unpaid',
-            self::PartialDp => 'Partial / DP',
+            self::PartialDp => 'Partially paid',
             self::Paid => 'Paid',
         };
     }

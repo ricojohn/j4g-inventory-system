@@ -89,6 +89,73 @@ test('reversing payment decreases amount paid', function () {
         ->and($payment->fresh()->isReversed())->toBeTrue();
 });
 
+test('payment amount cannot exceed balance due', function () {
+    $order = CustomerOrder::factory()->create([
+        'order_total' => 1000,
+        'amount_paid' => 400,
+        'created_by' => userWithRole('Staff')->id,
+    ]);
+
+    $this->actingAs(userWithRole('Staff'))
+        ->from(route('orders.show', ['order' => $order, 'tab' => 'invoice']))
+        ->post(route('orders.payments.store', $order), [
+            'amount' => 700,
+            'method' => 'cash',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('amount');
+
+    expect((float) $order->fresh()->amount_paid)->toBe(400.0)
+        ->and(OrderPayment::query()->count())->toBe(0);
+});
+
+test('record payment is hidden when order is fully paid', function () {
+    $order = CustomerOrder::factory()->create([
+        'order_total' => 500,
+        'amount_paid' => 500,
+        'created_by' => userWithRole('Staff')->id,
+    ]);
+
+    $this->actingAs(userWithRole('Staff'))
+        ->get(route('orders.show', ['order' => $order, 'tab' => 'invoice']))
+        ->assertOk()
+        ->assertSee('Invoice summary', false)
+        ->assertSee('Payment ledger', false)
+        ->assertSee('Paid', false)
+        ->assertDontSee('+ Record payment', false);
+});
+
+test('invoice tab shows record payment when balance remains', function () {
+    $order = CustomerOrder::factory()->create([
+        'order_total' => 500,
+        'amount_paid' => 100,
+        'created_by' => userWithRole('Staff')->id,
+    ]);
+
+    $this->actingAs(userWithRole('Staff'))
+        ->get(route('orders.show', ['order' => $order, 'tab' => 'invoice']))
+        ->assertOk()
+        ->assertSee('+ Record payment', false)
+        ->assertSee('Partially paid', false);
+});
+
+test('cannot record payment on fully paid order', function () {
+    $order = CustomerOrder::factory()->create([
+        'order_total' => 500,
+        'amount_paid' => 500,
+        'created_by' => userWithRole('Staff')->id,
+    ]);
+
+    $this->actingAs(userWithRole('Staff'))
+        ->post(route('orders.payments.store', $order), [
+            'amount' => 10,
+            'method' => 'cash',
+        ])
+        ->assertSessionHasErrors('amount');
+
+    expect(OrderPayment::query()->count())->toBe(0);
+});
+
 test('finance page lists open balances', function () {
     CustomerOrder::factory()->create([
         'order_number' => 'CO-OPEN1',

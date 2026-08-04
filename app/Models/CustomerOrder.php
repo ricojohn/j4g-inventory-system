@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CustomerOrderStatus;
 use App\Enums\CustomerSource;
+use App\Enums\OrderLayoutStatus;
 use App\Enums\OrderPaymentStatus;
 use App\Enums\ProductionStage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -143,12 +144,45 @@ class CustomerOrder extends Model
         return $this->paymentStatus()->label();
     }
 
+    public function latestLayout(): ?OrderLayout
+    {
+        if ($this->relationLoaded('layouts')) {
+            return $this->layouts->sortByDesc('version')->first();
+        }
+
+        return $this->layouts()->orderByDesc('version')->first();
+    }
+
+    public function approvedLayout(): ?OrderLayout
+    {
+        if ($this->relationLoaded('layouts')) {
+            return $this->layouts
+                ->where('status', OrderLayoutStatus::Approved)
+                ->sortByDesc('version')
+                ->first();
+        }
+
+        return $this->layouts()
+            ->where('status', OrderLayoutStatus::Approved)
+            ->orderByDesc('version')
+            ->first();
+    }
+
+    /**
+     * Prefer the approved layout image, then the latest layout, then legacy image_path.
+     */
     public function imageUrl(): ?string
     {
-        if (blank($this->image_path)) {
+        $layout = $this->approvedLayout() ?? $this->latestLayout();
+
+        if ($layout?->fileUrl()) {
+            return $layout->fileUrl();
+        }
+
+        if (blank($this->image_path) || ! Storage::disk('public')->exists($this->image_path)) {
             return null;
         }
 
-        return Storage::disk('public')->url($this->image_path);
+        return asset('storage/'.$this->image_path);
     }
 }

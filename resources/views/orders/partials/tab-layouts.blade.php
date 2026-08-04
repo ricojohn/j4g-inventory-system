@@ -57,6 +57,8 @@
                     <div class="flex items-center gap-2">
                         @if ($layout->fileUrl())
                             <a href="{{ $layout->fileUrl() }}" target="_blank" rel="noopener noreferrer" class="ui-row-action">Open</a>
+                        @else
+                            <span class="text-[12px] text-amber-700">File missing</span>
                         @endif
                         @if ($canFulfill && $layout->status === \App\Enums\OrderLayoutStatus::Draft)
                             <form method="POST" action="{{ route('orders.layouts.approve', [$order, $layout]) }}" class="inline-flex items-center gap-2">

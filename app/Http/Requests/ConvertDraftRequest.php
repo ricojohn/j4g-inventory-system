@@ -19,6 +19,8 @@ class ConvertDraftRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
+            'create_customer' => ['sometimes', 'boolean'],
             'customer_name' => ['required', 'string', 'max:255'],
             'customer_contact' => ['nullable', 'string', 'max:255'],
             'customer_source' => ['required', 'string', Rule::in(array_column(CustomerSource::cases(), 'value'))],

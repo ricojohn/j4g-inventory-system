@@ -216,9 +216,6 @@ class CustomerOrderController extends Controller
                 'due_date' => $request->input('due_date'),
                 'order_total' => round($orderTotal, 2),
                 'amount_paid' => 0,
-                'image_path' => $request->hasFile('order_image')
-                    ? $request->file('order_image')->store('order-images', 'public')
-                    : null,
                 'status' => CustomerOrderStatus::Pending,
                 'production_stage' => ProductionStage::Ready,
                 'created_by' => $request->user()->id,
@@ -232,6 +229,27 @@ class CustomerOrderController extends Controller
                     'unit_price' => round((float) ($item['unit_price'] ?? 0), 2),
                     'status' => 'pending',
                 ]);
+            }
+
+            if ($request->hasFile('order_image')) {
+                $layout = $order->layouts()->create([
+                    'version' => 1,
+                    'title' => 'Initial layout',
+                    'file_path' => $request->file('order_image')->store('order-layouts', 'public'),
+                    'status' => OrderLayoutStatus::Draft,
+                ]);
+
+                $this->activityLogger->log(
+                    $order,
+                    'layout_uploaded',
+                    'Layout version uploaded',
+                    sprintf('v%s — %s', $layout->version, $layout->title),
+                    [
+                        'layout_id' => $layout->id,
+                        'version' => $layout->version,
+                    ],
+                    $request->user(),
+                );
             }
 
             $this->customerOrderService->reserveOrder($order);
@@ -338,7 +356,7 @@ class CustomerOrderController extends Controller
         });
 
         return redirect()
-            ->route('orders.show', $order)
+            ->route('orders.show', ['order' => $order, 'tab' => 'layouts'])
             ->with('success', "Layout v{$layout->version} uploaded.");
     }
 

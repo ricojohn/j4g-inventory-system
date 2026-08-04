@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Enums\AiOrderDraftStatus;
 use App\Enums\CustomerOrderStatus;
 use App\Enums\CustomerSource;
+use App\Enums\OrderLayoutStatus;
 use App\Models\AiOrderDraft;
+use App\Models\Customer;
 use App\Models\CustomerOrder;
 use App\Models\Product;
 use App\Models\ProductColor;
@@ -24,6 +26,7 @@ class AiOrderDraftService
         private AiProviderManager $aiProviderManager,
         private CustomerOrderService $customerOrderService,
         private ProductCellLookup $productCellLookup,
+        private OrderActivityLogger $activityLogger,
     ) {}
 
     public function createDraftFromMessage(string $message, User $user): AiOrderDraft
@@ -87,12 +90,14 @@ class AiOrderDraftService
 
             $this->productCellLookup->ensureActiveProducts($cells->values());
 
+            $customer = $this->resolveCustomerForConversion($reviewedData, $user);
+
             $order = CustomerOrder::query()->create([
+                'customer_id' => $customer->id,
                 'customer_name' => $reviewedData['customer_name'],
-                'customer_contact' => $reviewedData['customer_contact'] ?? null,
-                'customer_source' => $reviewedData['customer_source'] ?? CustomerSource::Facebook->value,
-                'customer_notes' => $reviewedData['customer_notes'] ?? null,
-                'image_path' => $draft->image_path,
+                'customer_contact' => $reviewedData['customer_contact'] ?? $customer->contact,
+                'customer_source' => $reviewedData['customer_source'] ?? $customer->source?->value ?? CustomerSource::Facebook->value,
+                'customer_notes' => $reviewedData['customer_notes'] ?? $customer->notes,
                 'status' => CustomerOrderStatus::Pending,
                 'created_by' => $user->id,
             ]);
@@ -111,6 +116,27 @@ class AiOrderDraftService
                     'quantity_reserved' => 0,
                     'status' => 'pending',
                 ]);
+            }
+
+            if (filled($draft->image_path)) {
+                $layout = $order->layouts()->create([
+                    'version' => 1,
+                    'title' => 'Initial layout',
+                    'file_path' => $draft->image_path,
+                    'status' => OrderLayoutStatus::Draft,
+                ]);
+
+                $this->activityLogger->log(
+                    $order,
+                    'layout_uploaded',
+                    'Layout version uploaded',
+                    sprintf('v%s — %s', $layout->version, $layout->title),
+                    [
+                        'layout_id' => $layout->id,
+                        'version' => $layout->version,
+                    ],
+                    $user,
+                );
             }
 
             $this->customerOrderService->reserveOrder($order);
@@ -138,6 +164,43 @@ class AiOrderDraftService
                 'redirect_url' => $redirectUrl,
             ];
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $reviewedData
+     */
+    private function resolveCustomerForConversion(array $reviewedData, User $user): Customer
+    {
+        $customerId = isset($reviewedData['customer_id']) ? (int) $reviewedData['customer_id'] : null;
+
+        if ($customerId) {
+            $customer = Customer::query()->find($customerId);
+
+            if (! $customer) {
+                throw new InvalidArgumentException('Selected customer was not found.');
+            }
+
+            return $customer;
+        }
+
+        $shouldCreate = array_key_exists('create_customer', $reviewedData)
+            ? (bool) $reviewedData['create_customer']
+            : true;
+
+        if (! $shouldCreate) {
+            throw new InvalidArgumentException('Select an existing customer or allow creating a new one.');
+        }
+
+        if (! $user->can('manage customers')) {
+            throw new InvalidArgumentException('You do not have permission to create customers.');
+        }
+
+        return Customer::query()->create([
+            'name' => $reviewedData['customer_name'],
+            'contact' => $reviewedData['customer_contact'] ?? null,
+            'source' => $reviewedData['customer_source'] ?? CustomerSource::Facebook->value,
+            'notes' => $reviewedData['customer_notes'] ?? null,
+        ]);
     }
 
     /**

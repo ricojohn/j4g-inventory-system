@@ -45,10 +45,10 @@ class OrderLayout extends Model
 
     public function fileUrl(): ?string
     {
-        if (blank($this->file_path)) {
+        if (blank($this->file_path) || ! Storage::disk('public')->exists($this->file_path)) {
             return null;
         }
 
-        return Storage::disk('public')->url($this->file_path);
+        return asset('storage/'.$this->file_path);
     }
 }

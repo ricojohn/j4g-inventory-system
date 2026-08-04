@@ -41,6 +41,7 @@ function bindActions(config) {
     document.getElementById('draft-order-image')?.addEventListener('change', () => uploadDraftImage(config));
     document.getElementById('draft-image-remove')?.addEventListener('click', () => removeDraftImage(config));
     document.getElementById('convert-confirm-btn')?.addEventListener('click', () => executeConvert(config));
+    document.getElementById('preview-customer-id')?.addEventListener('change', () => applySelectedCustomer());
     initConvertConfirmModal();
 }
 
@@ -106,6 +107,8 @@ function hydratePreview(draft, config) {
     document.getElementById('preview-customer-source').value = draft.customer_source ?? 'facebook';
     document.getElementById('preview-customer-notes').value = draft.customer_notes ?? '';
 
+    preselectCustomerByName(draft.customer_name ?? '', config);
+
     setDraftImagePreview(draft.image_url ?? '');
 
     previewItems = (draft.matched_json?.items ?? []).map((item) => ({
@@ -114,6 +117,57 @@ function hydratePreview(draft, config) {
     }));
 
     renderPreviewItems(config);
+}
+
+function preselectCustomerByName(name, config) {
+    const picker = document.getElementById('preview-customer-id');
+    if (!picker) {
+        return;
+    }
+
+    const normalized = name.trim().toLowerCase();
+    if (!normalized) {
+        picker.value = '';
+        return;
+    }
+
+    const match = (config.customers ?? []).find((customer) => customer.name?.toLowerCase() === normalized);
+    picker.value = match ? String(match.id) : '';
+}
+
+function applySelectedCustomer() {
+    const picker = document.getElementById('preview-customer-id');
+    const option = picker?.selectedOptions?.[0];
+    if (!picker || !option || !option.value) {
+        return;
+    }
+
+    const nameInput = document.getElementById('preview-customer-name');
+    const contactInput = document.getElementById('preview-customer-contact');
+    const sourceSelect = document.getElementById('preview-customer-source');
+    const notesInput = document.getElementById('preview-customer-notes');
+
+    if (nameInput) {
+        nameInput.value = option.dataset.name ?? '';
+    }
+    if (contactInput) {
+        contactInput.value = option.dataset.contact || option.dataset.handle || '';
+    }
+    if (sourceSelect && option.dataset.source) {
+        sourceSelect.value = option.dataset.source;
+    }
+    if (notesInput) {
+        notesInput.value = option.dataset.notes ?? '';
+    }
+}
+
+function selectedCustomerId() {
+    const value = document.getElementById('preview-customer-id')?.value?.trim() ?? '';
+    return value ? Number(value) : null;
+}
+
+function isCreatingNewCustomer(config) {
+    return !selectedCustomerId() && Boolean(config?.canManageCustomers);
 }
 
 async function renderPreviewItems(config) {
@@ -395,6 +449,8 @@ function collectReviewPayload() {
     });
 
     return {
+        customer_id: selectedCustomerId(),
+        create_customer: isCreatingNewCustomer(window.aiAssistantConfig),
         customer_name: document.getElementById('preview-customer-name')?.value?.trim() ?? '',
         customer_contact: document.getElementById('preview-customer-contact')?.value?.trim() ?? '',
         customer_source: document.getElementById('preview-customer-source')?.value ?? 'facebook',
@@ -438,6 +494,11 @@ async function convertDraft(config) {
         return;
     }
 
+    if (!selectedCustomerId() && !config.canManageCustomers) {
+        showToast('Select an existing customer to create this order.', 'error');
+        return;
+    }
+
     if (previewRowsNeedReview()) {
         showToast('All items must be matched before creating an order.', 'error');
         return;
@@ -474,9 +535,19 @@ function initConvertConfirmModal() {
 function showConvertConfirmModal(items, config) {
     const modal = document.getElementById('convert-confirm-modal');
     const tbody = document.getElementById('convert-confirm-items');
+    const customerSummary = document.getElementById('convert-confirm-customer');
 
     if (!modal || !tbody) {
         return;
+    }
+
+    const customerName = document.getElementById('preview-customer-name')?.value?.trim() ?? '';
+    const customerId = selectedCustomerId();
+
+    if (customerSummary) {
+        customerSummary.textContent = customerId
+            ? `Linking existing customer: ${customerName}`
+            : `Creating new customer: ${customerName}`;
     }
 
     tbody.innerHTML = items.map((item) => `
@@ -665,7 +736,7 @@ async function uploadDraftImage(config) {
 
         currentDraft.image_url = data.image_url;
         setDraftImagePreview(data.image_url);
-        showToast(data.message || 'Reference image uploaded.');
+        showToast(data.message || 'Layout image uploaded.');
     } catch (error) {
         clearDraftImageInput();
         showToast(error.message || 'Unable to upload image.', 'error');
@@ -695,7 +766,7 @@ async function removeDraftImage(config) {
         currentDraft.image_url = null;
         clearDraftImageInput();
         setDraftImagePreview('');
-        showToast(data.message || 'Reference image removed.');
+        showToast(data.message || 'Layout image removed.');
     } catch (error) {
         showToast(error.message || 'Unable to remove image.', 'error');
     }
