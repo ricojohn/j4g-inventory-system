@@ -1,20 +1,30 @@
 @extends('layouts.app')
 
-@section('page-title', 'Customer Orders')
+@section('page-title', 'Orders')
 
 @section('content')
-    <x-ui.page-header title="Customer Orders">
-        @can('create orders')
-            <x-slot:actions>
-                <x-ui.button :href="route('orders.create')">New Order</x-ui.button>
-            </x-slot:actions>
-        @endcan
+    <x-ui.page-header
+        eyebrow="Operations"
+        title="Orders"
+        subtitle="Every customer commitment, next action, and warning in one place."
+    >
+        <x-slot:actions>
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="inline-flex rounded-md border border-gray-200 bg-white p-0.5">
+                    <a href="{{ route('orders.index') }}" class="rounded bg-brand px-2.5 py-1 text-[12px] font-medium text-white">Table</a>
+                    <a href="{{ route('orders.board') }}" class="rounded px-2.5 py-1 text-[12px] font-medium text-gray-600 hover:bg-gray-50">Board</a>
+                </div>
+                @can('create orders')
+                    <x-ui.button :href="route('orders.create')">+ New order</x-ui.button>
+                @endcan
+            </div>
+        </x-slot:actions>
     </x-ui.page-header>
 
     <x-ui.page-card>
         <x-slot:toolbar>
             <div class="ui-toolbar-form">
-                <x-ui.input type="search" id="orders-search" placeholder="Search orders..." class="w-auto! min-w-48" />
+                <x-ui.input type="search" id="orders-search" placeholder="Search orders or customers..." class="w-auto! min-w-48" />
                 <x-ui.select id="orders-status-filter" class="w-auto! min-w-40">
                     <option value="">All Statuses</option>
                     <option value="pending">Pending</option>
@@ -44,15 +54,13 @@
         <x-ui.async-table tbody-id="orders-table-body" pagination-id="orders-pagination">
             <x-slot:head>
                 <tr>
-                    <th>Order #</th>
+                    <th>Order</th>
                     <th>Customer</th>
-                    <th>Contact</th>
-                    <th>Source</th>
-                    <th>Items</th>
-                    <th>PO</th>
+                    <th>Due</th>
                     <th>Status</th>
-                    <th>Date</th>
-                    <th>Actions</th>
+                    <th>Payment</th>
+                    <th>Next action</th>
+                    <th></th>
                 </tr>
             </x-slot:head>
         </x-ui.async-table>
@@ -75,32 +83,19 @@ document.addEventListener('DOMContentLoaded', () => {
             fulfilled: 'bg-green-100 text-green-800',
             cancelled: 'bg-red-100 text-red-800',
         };
-        return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${classes[status] ?? 'bg-gray-100 text-gray-700'}">${escapeHtml(label)}</span>`;
+        return `<span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${classes[status] ?? 'bg-gray-100 text-gray-700'}"><span class="h-1.5 w-1.5 rounded-full bg-current opacity-70"></span>${escapeHtml(label)}</span>`;
     };
 
-    const poBadge = (order) => {
-        if (!order.po_number) return '—';
-        const classes = {
-            draft: 'bg-gray-100 text-gray-700',
-            sent: 'bg-blue-100 text-blue-800',
-            partially_received: 'bg-amber-100 text-amber-800',
-            received: 'bg-green-100 text-green-800',
-            cancelled: 'bg-red-100 text-red-800',
-        };
-        const badgeClass = classes[order.po_status] ?? 'bg-gray-100 text-gray-700';
-        return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${badgeClass}">${escapeHtml(order.po_number)}</span>`;
-    };
-
-    const sourceBadge = (order) => {
-        if (!order.customer_source_label) return '—';
-        return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${order.customer_source_badge_color}">${escapeHtml(order.customer_source_icon ?? '')} ${escapeHtml(order.customer_source_label)}</span>`;
+    const sourceLine = (order) => {
+        if (!order.customer_source_label) return '';
+        return `<p class="mt-0.5 text-[11px] text-gray-500">${escapeHtml(order.customer_source_label)}</p>`;
     };
 
     const table = initAsyncTable({
         tbodyId: 'orders-table-body',
         paginationId: 'orders-pagination',
         dataUrl: config.dataUrl,
-        columnCount: 9,
+        columnCount: 7,
         emptyMessage: 'No customer orders found.',
         getParams: () => ({
             search: document.getElementById('orders-search')?.value ?? '',
@@ -110,14 +105,20 @@ document.addEventListener('DOMContentLoaded', () => {
         getPerPage: () => Number(document.getElementById('orders-per-page')?.value ?? 20),
         renderRows: (rows) => rows.map((order) => `
             <tr>
-                <td>${escapeHtml(order.order_number)}</td>
-                <td>${escapeHtml(order.customer_name)}</td>
-                <td>${escapeHtml(order.customer_contact)}</td>
-                <td>${sourceBadge(order)}</td>
-                <td>${escapeHtml(order.item_count)}</td>
-                <td>${poBadge(order)}</td>
+                <td>
+                    <p class="font-medium text-gray-900">${escapeHtml(order.order_number)}</p>
+                    ${sourceLine(order)}
+                </td>
+                <td>
+                    <p class="font-medium text-gray-900">${escapeHtml(order.customer_name)}</p>
+                    <p class="mt-0.5 text-[11px] text-gray-500">${escapeHtml(order.customer_contact)}</p>
+                </td>
+                <td>${escapeHtml(order.due_date ?? '—')}</td>
                 <td>${statusBadge(order.status, order.status_label)}</td>
-                <td>${escapeHtml(order.created_at)}</td>
+                <td>${escapeHtml(order.payment_status ?? '—')}</td>
+                <td>
+                    <a href="${escapeHtml(order.show_url)}" class="text-[13px] font-medium text-brand hover:underline">${escapeHtml(order.next_action_label)} →</a>
+                </td>
                 <td><a href="${escapeHtml(order.show_url)}" class="ui-row-action">View</a></td>
             </tr>
         `).join(''),

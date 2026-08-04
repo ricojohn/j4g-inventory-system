@@ -3,19 +3,19 @@
     "file": "assets/bootstrap-UyRVujZY.js",
     "name": "bootstrap"
   },
-  "_color-image-ZjomlsX2.js": {
-    "file": "assets/color-image-ZjomlsX2.js",
+  "_color-image-CobfLpQN.js": {
+    "file": "assets/color-image-CobfLpQN.js",
     "name": "color-image",
     "imports": [
-      "_data-table-BbGHUeVY.js"
+      "_data-table-BiSrnXne.js"
     ]
   },
-  "_data-table-BbGHUeVY.js": {
-    "file": "assets/data-table-BbGHUeVY.js",
+  "_data-table-BiSrnXne.js": {
+    "file": "assets/data-table-BiSrnXne.js",
     "name": "data-table"
   },
   "resources/css/app.css": {
-    "file": "assets/app-oYpwa7zz.css",
+    "file": "assets/app-DtwTK0UU.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -24,34 +24,52 @@
     ]
   },
   "resources/js/ai-assistant.js": {
-    "file": "assets/ai-assistant-C5CO9zk7.js",
+    "file": "assets/ai-assistant-DWiIPBqC.js",
     "name": "ai-assistant",
     "src": "resources/js/ai-assistant.js",
     "isEntry": true,
     "imports": [
-      "_data-table-BbGHUeVY.js",
-      "_color-image-ZjomlsX2.js"
+      "_data-table-BiSrnXne.js",
+      "_color-image-CobfLpQN.js"
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-Bpi06Tmi.js",
+    "file": "assets/app-BUxFAQ8M.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "imports": [
       "_bootstrap-UyRVujZY.js",
-      "_data-table-BbGHUeVY.js",
-      "_color-image-ZjomlsX2.js"
+      "_data-table-BiSrnXne.js",
+      "_color-image-CobfLpQN.js"
     ]
   },
   "resources/js/dashboard.js": {
-    "file": "assets/dashboard-CBxaZmGh.js",
+    "file": "assets/dashboard-P1LkMaEz.js",
     "name": "dashboard",
     "src": "resources/js/dashboard.js",
     "isEntry": true,
     "imports": [
       "_bootstrap-UyRVujZY.js",
-      "_data-table-BbGHUeVY.js"
+      "_data-table-BiSrnXne.js"
+    ]
+  },
+  "resources/js/orders-board.js": {
+    "file": "assets/orders-board-ovAWOpBq.js",
+    "name": "orders-board",
+    "src": "resources/js/orders-board.js",
+    "isEntry": true,
+    "imports": [
+      "_data-table-BiSrnXne.js"
+    ]
+  },
+  "resources/js/production-board.js": {
+    "file": "assets/production-board-O-WODoSF.js",
+    "name": "production-board",
+    "src": "resources/js/production-board.js",
+    "isEntry": true,
+    "imports": [
+      "_data-table-BiSrnXne.js"
     ]
   }
 }

@@ -16,6 +16,7 @@ class CustomerOrderItem extends Model
         'product_color_size_id',
         'quantity_ordered',
         'quantity_reserved',
+        'unit_price',
         'status',
     ];
 
@@ -24,6 +25,7 @@ class CustomerOrderItem extends Model
         return [
             'quantity_ordered' => 'integer',
             'quantity_reserved' => 'integer',
+            'unit_price' => 'decimal:2',
         ];
     }
 
@@ -40,5 +42,10 @@ class CustomerOrderItem extends Model
     public function supplierItems(): HasMany
     {
         return $this->hasMany(SupplierOrderItem::class);
+    }
+
+    public function lineTotal(): float
+    {
+        return round((float) $this->unit_price * $this->quantity_ordered, 2);
     }
 }

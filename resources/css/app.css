@@ -8,8 +8,13 @@
 @theme {
     --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
-    --color-surface: #fafafa;
-    --color-sidebar: #f5f5f5;
+    --color-surface: #f8f9fb;
+    --color-sidebar: #1a2238;
+    --color-brand: #3858d6;
+    --color-brand-hover: #2f4bc0;
+    --color-brand-soft: #e8edfb;
+    --color-warning-soft: #fff4e5;
+    --color-danger-soft: #fde8e8;
 }
 
 @layer base {
@@ -54,11 +59,11 @@
     }
 
     .ui-toolbar-input {
-        @apply h-9 min-h-9 w-auto min-w-48 rounded-lg border border-gray-300 px-3 text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200;
+        @apply h-9 min-h-9 w-auto min-w-48 rounded-lg border border-gray-300 px-3 text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
     }
 
     .ui-toolbar-select {
-        @apply h-9 min-h-9 w-auto rounded-lg border border-gray-300 px-3 text-[13px] text-gray-900 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200;
+        @apply h-9 min-h-9 w-auto rounded-lg border border-gray-300 px-3 text-[13px] text-gray-900 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
     }
 
     .ui-row-action {
@@ -70,7 +75,7 @@
     }
 
     .ui-row-more {
-        @apply h-8 rounded-md border border-gray-300 bg-white px-2 text-[12px] text-gray-700 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200;
+        @apply h-8 rounded-md border border-gray-300 bg-white px-2 text-[12px] text-gray-700 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
     }
 
     .ui-modal-overlay {
@@ -95,6 +100,22 @@
 
     .ui-modal-footer {
         @apply flex flex-col-reverse gap-2 border-t border-gray-200 px-4 py-3 sm:flex-row sm:justify-end;
+    }
+
+    .ui-alert-warning {
+        @apply rounded-xl border border-amber-200 bg-warning-soft px-4 py-3 text-[13px] text-amber-900;
+    }
+
+    .ui-alert-danger {
+        @apply rounded-xl border border-red-200 bg-danger-soft px-4 py-3 text-[13px] text-red-900;
+    }
+
+    .ui-tab {
+        @apply inline-flex items-center gap-1.5 border-b-2 border-transparent px-1 pb-2.5 text-[13px] font-medium text-gray-500 hover:text-gray-800;
+    }
+
+    .ui-tab-active {
+        @apply border-brand text-brand;
     }
 
     .inventory-grid-scroll {

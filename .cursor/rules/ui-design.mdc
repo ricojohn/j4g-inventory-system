@@ -1,39 +1,38 @@
 ---
-description: J4G Inventory UI/UX design system for Blade views, modals, tables, and dashboards
+description: J4G Ops UI design system for Blade views, modals, tables, and dashboards
 globs: resources/views/**/*.blade.php,resources/css/app.css
 alwaysApply: false
 ---
 
-# J4G Inventory UI / UX
+# J4G Ops UI / UX
 
-**Admin list pages:** follow [shopify-admin-ui.mdc](shopify-admin-ui.mdc) for shell, density, tables, and components.
+**Admin pages:** follow [shopify-admin-ui.mdc](shopify-admin-ui.mdc) for shell, density, tables, and components.
 
-Modern operational SaaS — compact, clean, scannable, neutral. Not a typical Laravel CRUD dashboard.
+Modern operational SaaS — compact, scannable, attention-first. Dark navy sidebar + royal blue accents.
 
 ## Design goal
 
-Feel like Shopify Admin / Stripe / GitHub / Linear:
-
 - table-first, desktop-optimized, responsive on tablet/mobile
-- compact spacing, small readable text, thin borders, subtle hovers
-- not colorful, not flashy, not marketing-style
+- compact spacing, small readable text, thin borders, soft status color
+- action-oriented: what needs attention, what to do next
 
 ## Colors
 
-- Background: `gray-50` / `neutral-50`
+- Canvas: `bg-surface` (`#F8F9FB`)
+- Sidebar: `bg-sidebar` (`#1A2238`)
 - Panel: `white`
 - Border: `gray-200`
 - Text: `gray-900`, muted `gray-500`
-- Primary: `slate-900`
-- Status: green (ok/active), amber (low), red (danger/out), blue (reserved), gray (inactive)
-
-Avoid gradients, neon, rainbow dashboards.
+- Primary: `brand` (`#3858D6`) / `brand-hover`
+- Soft brand: `brand-soft`
+- Status: green (ok), amber (warning/partial), blue (in progress), purple (finance), orange (QC/PO), red (danger)
 
 ## Layout
 
-- Fixed `w-60` light sidebar + slim `h-12` top nav + full-width content
+- Fixed `w-60` dark sidebar + slim `h-12` top nav + full-width content
+- Content/nav horizontal padding: `px-5 sm:px-6 md:px-8 lg:px-10 xl:px-12` (generous gutters like the ops mockups)
 - No centered `max-w-7xl` content — use full available width
-- Mobile: hidden sidebar (slide-over), horizontal scroll tables, scrollable modals, `h-10` tap targets
+- Mobile: hidden sidebar (slide-over), horizontal scroll tables, `h-10` tap targets
 
 ## Typography
 
@@ -57,7 +56,7 @@ Inter via Bunny Fonts. Base `text-[13px]`.
 
 `page-header`, `page-card`, `async-table`, `button`, `badge`, `status-pill`, `stat-card`, `empty-state`, form inputs
 
-CSS utilities: `ui-table`, `ui-toolbar-form`, `ui-row-action`, `ui-row-more`, `ui-modal-*`
+CSS utilities: `ui-table`, `ui-toolbar-form`, `ui-row-action`, `ui-row-more`, `ui-modal-*`, `ui-tab`, `ui-alert-warning`, `ui-alert-danger`
 
 ## Empty & loading states
 

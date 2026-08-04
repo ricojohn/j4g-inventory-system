@@ -1,0 +1,23 @@
+async function f(t,e={}){const n=new URLSearchParams;Object.entries(e).forEach(([l,d])=>{d!=null&&d!==""&&n.set(l,String(d))});const r=n.toString(),s=r?`${t}?${r}`:t,o=await fetch(s,{headers:{Accept:"application/json","X-CSRF-TOKEN":document.querySelector('meta[name="csrf-token"]')?.content??""}}),a=await o.json();if(!o.ok){const l=a.message||"Unable to load table data.";throw new Error(l)}return a}function m(t,e=1){if(!t)return;const n=Array.from({length:e},()=>'<td><div class="h-4 animate-pulse rounded bg-gray-200"></div></td>').join("");t.innerHTML=Array.from({length:3},()=>`<tr>${n}</tr>`).join("")}function y(t,e="No records found.",n=1){t&&(t.innerHTML=`
+        <tr>
+            <td colspan="${n}" class="py-6! text-center text-[13px] text-gray-500">
+                ${u(e)}
+            </td>
+        </tr>
+    `)}function w(t,e="Unable to load data.",n=null,r=1){if(!t)return;const s=n?'<button type="button" class="table-retry-btn mt-2 text-sm font-medium text-gray-900 underline">Try again</button>':"";t.innerHTML=`
+        <tr>
+            <td colspan="${r}" class="py-8! text-center text-sm text-red-600">
+                ${u(e)}
+                ${s}
+            </td>
+        </tr>
+    `,n&&t.querySelector(".table-retry-btn")?.addEventListener("click",n)}function x(t,e,n){if(!t||!e)return;if(e.last_page<=1){t.innerHTML="",t.classList.add("hidden");return}t.classList.remove("hidden");const r=A(e.current_page,e.last_page),s=e.current_page<=1,o=e.current_page>=e.last_page;t.innerHTML=`
+        <div class="flex flex-wrap items-center justify-between gap-3 text-[13px] text-gray-600">
+            <p>Showing page ${e.current_page} of ${e.last_page} (${e.total} total)</p>
+            <nav class="flex flex-wrap items-center gap-1" aria-label="Pagination">
+                <button type="button" data-page="${e.current_page-1}" class="pagination-btn h-8 rounded-md border border-gray-300 px-2.5 text-[13px] ${s?"cursor-not-allowed opacity-50":"hover:bg-gray-50"}" ${s?"disabled":""}>Previous</button>
+                ${r.map(a=>{if(a==="...")return'<span class="px-2 py-1.5 text-gray-400">...</span>';const l=a===e.current_page;return`<button type="button" data-page="${a}" class="pagination-btn h-8 rounded-md border px-2.5 text-[13px] ${l?"border-slate-900 bg-slate-900 text-white":"border-gray-300 hover:bg-gray-50"}">${a}</button>`}).join("")}
+                <button type="button" data-page="${e.current_page+1}" class="pagination-btn h-8 rounded-md border border-gray-300 px-2.5 text-[13px] ${o?"cursor-not-allowed opacity-50":"hover:bg-gray-50"}" ${o?"disabled":""}>Next</button>
+            </nav>
+        </div>
+    `,t.querySelectorAll(".pagination-btn:not([disabled])").forEach(a=>{a.addEventListener("click",()=>{const l=Number(a.dataset.page);l>=1&&l<=e.last_page&&n(l)})})}function T(t){const e=String(t).toLowerCase(),n=e==="active"?"bg-green-100 text-green-800":"bg-gray-100 text-gray-700",r=e.charAt(0).toUpperCase()+e.slice(1);return`<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${n}">${u(r)}</span>`}function L(t,e=null){const n=String(t).replace(/_/g," ").toUpperCase(),r=e??n;return`<span data-status-badge class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${(window.getStatusBadgeClasses?.(t)??["bg-green-100","text-green-800"]).join(" ")}">${u(r)}</span>`}function S(t,e=300){let n;return(...r)=>{clearTimeout(n),n=setTimeout(()=>t(...r),e)}}function u(t){return String(t).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}function _(t){const{tbodyId:e,paginationId:n,dataUrl:r,columnCount:s=1,emptyMessage:o="No records found.",renderRows:a,getParams:l=()=>({}),getPerPage:d=()=>20,onLoaded:h=null}=t;let p=1;const i=document.getElementById(e),g=n?document.getElementById(n):null;async function b($=1){if(p=$,!!i){m(i,s);try{const c=await f(r,{page:p,per_page:d(),...l()});c.data?.length?i.innerHTML=a(c.data):y(i,o,s),g&&x(g,c.pagination,b),h?.(c)}catch(c){w(i,c.message||"Unable to load data.",()=>b(p),s),g?.classList.add("hidden")}}}return{loadData:b,getCurrentPage:()=>p}}function A(t,e){if(e<=7)return Array.from({length:e},(o,a)=>a+1);const n=[1];t>3&&n.push("...");const r=Math.max(2,t-1),s=Math.min(e-1,t+1);for(let o=r;o<=s;o+=1)n.push(o);return t<e-2&&n.push("..."),n.push(e),n}window.fetchTableData=f;window.showTableLoading=m;window.showTableEmpty=y;window.showTableError=w;window.renderPagination=x;window.renderStatusPill=T;window.renderStockBadge=L;window.debounce=S;window.initAsyncTable=_;window.escapeHtml=u;export{S as d,u as e};

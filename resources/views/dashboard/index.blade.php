@@ -1,108 +1,140 @@
 @extends('layouts.app')
 
-@section('page-title', 'Dashboard')
+@section('page-title', 'Today')
 
 @section('content')
-    <x-ui.page-header title="Dashboard" />
-
     @php
-        $user = auth()->user();
-        $productsHref = $user?->can('view products') ? route('products.index') : null;
-        $stockHistoryHref = $user?->can('view stock history') ? route('reports.stock-history') : null;
-        $lowStockHref = $user?->can('view low stock report') ? route('reports.low-stock') : null;
-        $outOfStockHref = $user?->can('view out of stock report') ? route('reports.out-of-stock') : null;
-        $ordersHref = $user?->can('view orders') ? route('orders.index') : null;
-        $supplierOrdersHref = $user?->can('view supplier orders') ? route('supplier-orders.index') : null;
+        $hour = (int) now()->format('G');
+        $greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
+        $firstName = collect(explode(' ', trim($greetingName)))->first() ?: $greetingName;
+        $ordersHref = auth()->user()?->can('view orders') ? route('orders.index') : null;
+        $inventoryHref = auth()->user()?->can('view products') ? route('products.index') : null;
+        $financeHref = auth()->user()?->can('view finance') && \Illuminate\Support\Facades\Route::has('finance.index')
+            ? route('finance.index')
+            : null;
+        $dueTotal = $dueTodayCount + $overdueCount;
     @endphp
 
+    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+            <p class="text-[11px] font-medium uppercase tracking-wide text-gray-400">{{ strtoupper(now()->format('l, j F')) }}</p>
+            <h1 class="mt-1 text-xl font-semibold tracking-tight text-gray-900">{{ $greeting }}, {{ $firstName }}.</h1>
+            <p class="mt-0.5 text-sm text-gray-500">Here's what needs your attention across J4G today.</p>
+        </div>
+        @if ($ordersHref)
+            <x-ui.button variant="secondary" :href="$ordersHref">View all orders</x-ui.button>
+        @endif
+    </div>
+
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <x-ui.stat-card label="Total Products" icon="products" :value="$totalProducts" :href="$productsHref" data-dashboard-stat="total-products" />
-        <x-ui.stat-card label="Total Stock" icon="stock" :value="$totalStock" :href="$productsHref" data-dashboard-stat="total-stock" />
-        <x-ui.stat-card label="Total Reserved" icon="reserved" :value="$totalReserved" :href="$stockHistoryHref" data-dashboard-stat="total-reserved" />
-        <x-ui.stat-card label="Total Available" icon="available" :value="$totalAvailable" :href="$productsHref" data-dashboard-stat="total-available" />
-        <x-ui.stat-card label="Low Stock Cells" icon="low-stock" :value="$lowStockCount" accent="warning" :href="$lowStockHref" data-dashboard-stat="low-stock-count" />
-        <x-ui.stat-card label="Out of Stock Cells" icon="out-of-stock" :value="$outOfStockCount" accent="danger" :href="$outOfStockHref" data-dashboard-stat="out-of-stock-count" />
-        <x-ui.stat-card label="Open Orders" icon="orders" :value="$openOrders" :href="$ordersHref" data-dashboard-stat="open-orders" />
-        <x-ui.stat-card label="Open POs" icon="pos" :value="$openPos" :href="$supplierOrdersHref" data-dashboard-stat="open-pos" />
+        <x-ui.stat-card
+            label="Due today & overdue"
+            icon="orders"
+            :value="$dueTotal"
+            :description="($overdueCount.' overdue · '.$dueTodayCount.' due today')"
+            accent="danger"
+            :href="$ordersHref"
+        />
+        <x-ui.stat-card
+            label="Stock shortages"
+            icon="low-stock"
+            :value="$shortagePieces"
+            :description="'pieces across '.$shortageSkuCount.' SKUs'"
+            accent="warning"
+            :href="$inventoryHref"
+        />
+        <x-ui.stat-card
+            label="Receivables"
+            icon="pos"
+            :value="$receivablesDisplay"
+            :description="$receivablesInvoiceCount.' invoices need action'"
+            accent="info"
+            :href="$financeHref"
+        />
+        <x-ui.stat-card
+            label="Production blockers"
+            icon="out-of-stock"
+            :value="$productionBlockers"
+            description="shortage · draft PO · follow-up"
+            accent="info"
+            :href="$ordersHref"
+        />
     </div>
 
-    <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <x-ui.page-card>
-            <div class="border-b border-gray-200 px-4 py-3">
-                <h2 class="text-[13px] font-semibold text-gray-900">Stock Health</h2>
-                <p class="mt-0.5 text-[12px] text-gray-500">Distribution of inventory cell status</p>
+    @if ($primaryAction)
+        <div class="mt-4 flex flex-col gap-3 rounded-xl bg-sidebar px-4 py-3 text-white sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0">
+                <p class="text-[13px] font-medium">{{ $primaryAction['title'] }}</p>
+                <p class="mt-0.5 text-[12px] text-white/65">{{ $primaryAction['subtitle'] }}</p>
             </div>
-            <div id="chart-stock-health" class="min-h-64 p-4"></div>
+            <a href="{{ $primaryAction['href'] }}" class="shrink-0 text-[13px] font-medium text-white hover:underline">Review now →</a>
+        </div>
+    @endif
+
+    <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <x-ui.page-card class="lg:col-span-3">
+            <div class="border-b border-gray-200 px-4 py-3">
+                <h2 class="text-[13px] font-semibold text-gray-900">Needs attention</h2>
+                <p class="mt-0.5 text-[12px] text-gray-500">Highest-impact work, ordered by urgency.</p>
+            </div>
+            <ul class="divide-y divide-gray-100">
+                @forelse ($attentionItems as $item)
+                    <li>
+                        <a href="{{ $item['href'] }}" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[13px] font-medium text-gray-900">{{ $item['title'] }}</p>
+                                <p class="mt-0.5 text-[12px] text-gray-500">{{ $item['subtitle'] }}</p>
+                            </div>
+                            <x-ui.status-pill :status="$item['tag']">{{ $item['tag'] }}</x-ui.status-pill>
+                            <span class="text-gray-400" aria-hidden="true">→</span>
+                        </a>
+                    </li>
+                @empty
+                    <li class="px-4 py-8 text-center text-[13px] text-gray-500">Nothing urgent right now.</li>
+                @endforelse
+            </ul>
         </x-ui.page-card>
 
-        <x-ui.page-card>
+        <x-ui.page-card class="lg:col-span-2">
             <div class="border-b border-gray-200 px-4 py-3">
-                <h2 class="text-[13px] font-semibold text-gray-900">Stock Movement Trend</h2>
-                <p class="mt-0.5 text-[12px] text-gray-500">Last 14 days of stock in, out, and damaged</p>
+                <h2 class="text-[13px] font-semibold text-gray-900">Reservation pulse</h2>
+                <p class="mt-0.5 text-[12px] text-gray-500">{{ $openOrders }} active orders</p>
             </div>
-            <div id="chart-movement-trend" class="min-h-64 p-4"></div>
-        </x-ui.page-card>
-    </div>
-
-    <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <x-ui.page-card>
-            <div class="border-b border-gray-200 px-4 py-3">
-                <h2 class="text-[13px] font-semibold text-gray-900">Low Stock by Product</h2>
-                <p class="mt-0.5 text-[12px] text-gray-500">Top 10 products with stock issues</p>
+            <div class="space-y-3 p-4">
+                @php $maxPulse = max(1, collect($pulse)->max('count')); @endphp
+                @foreach ($pulse as $row)
+                    <div>
+                        <div class="mb-1 flex items-center justify-between text-[12px]">
+                            <span class="font-medium text-gray-700">{{ $row['label'] }}</span>
+                            <span class="text-gray-500">{{ $row['count'] }}</span>
+                        </div>
+                        <div class="h-2 overflow-hidden rounded-full bg-gray-100">
+                            <div class="h-full rounded-full {{ $row['color'] }}" style="width: {{ ($row['count'] / $maxPulse) * 100 }}%"></div>
+                        </div>
+                    </div>
+                @endforeach
             </div>
-            <div id="chart-low-stock-by-product" class="min-h-64 p-4"></div>
-        </x-ui.page-card>
-
-        <x-ui.page-card>
-            <div class="border-b border-gray-200 px-4 py-3">
-                <h2 class="text-[13px] font-semibold text-gray-900">Most Active Products</h2>
-                <p class="mt-0.5 text-[12px] text-gray-500">Top 10 products by movement count (30 days)</p>
-            </div>
-            <div id="chart-active-products" class="min-h-64 p-4"></div>
+            @if ($ordersHref)
+                <div class="border-t border-gray-200 px-4 py-3">
+                    <a href="{{ route('orders.board') }}" class="text-[13px] font-medium text-brand hover:underline">Open orders board →</a>
+                </div>
+            @endif
         </x-ui.page-card>
     </div>
 
     <x-ui.page-card class="mt-4">
-        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
-            <div>
-                <h2 class="text-[13px] font-semibold text-gray-900">Recent Stock Movements</h2>
-                <p class="mt-0.5 text-[12px] text-gray-500">Latest inventory activity across all products</p>
+        <div class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-wrap items-center gap-4 text-[13px]">
+                <span><span class="font-semibold text-gray-900">{{ number_format($totalAvailable) }}</span> <span class="text-gray-500">Available</span></span>
+                <span><span class="font-semibold text-amber-700">{{ number_format($lowStockCount) }}</span> <span class="text-gray-500">Low stock</span></span>
+                <span><span class="font-semibold text-red-700">{{ number_format($outOfStockCount) }}</span> <span class="text-gray-500">Out of stock</span></span>
+                <span><span class="font-semibold text-gray-900">{{ number_format($openPos) }}</span> <span class="text-gray-500">Open POs</span></span>
+                <span class="text-gray-400">·</span>
+                <span class="text-gray-500">{{ number_format($totalStock) }} on hand · {{ number_format($totalReserved) }} reserved</span>
             </div>
-            @can('view stock history')
-                <x-ui.button variant="secondary" :href="route('reports.stock-history')">View All Stock History</x-ui.button>
-            @endcan
+            @if ($inventoryHref)
+                <x-ui.button variant="secondary" :href="$inventoryHref">Review inventory</x-ui.button>
+            @endif
         </div>
-        <x-ui.async-table tbody-id="recent-movements-table-body" pagination-id="recent-movements-pagination" class="ui-table">
-            <x-slot:head>
-                <tr>
-                    <th>Date</th>
-                    <th>Product</th>
-                    <th>Color</th>
-                    <th>Size</th>
-                    <th>Type</th>
-                    <th>Qty</th>
-                    <th>User</th>
-                </tr>
-            </x-slot:head>
-        </x-ui.async-table>
     </x-ui.page-card>
 @endsection
-
-@push('scripts')
-@php
-    $dashboardConfig = [
-        'routes' => [
-            'stats' => route('dashboard.stats'),
-            'stockHealth' => route('dashboard.stock-health'),
-            'stockMovementTrend' => route('dashboard.stock-movement-trend'),
-            'lowStockByProduct' => route('dashboard.low-stock-by-product'),
-            'activeProducts' => route('dashboard.active-products'),
-            'recentMovements' => route('dashboard.recent-movements.data'),
-        ],
-    ];
-@endphp
-<script>
-    window.dashboardConfig = @json($dashboardConfig);
-</script>
-@vite('resources/js/dashboard.js')
-@endpush

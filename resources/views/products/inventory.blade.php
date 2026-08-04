@@ -3,7 +3,11 @@
 @section('page-title', 'Manage Inventory')
 
 @section('content')
-    <x-ui.page-header :title="$product->name" :subtitle="$product->code">
+    <x-ui.page-header
+        eyebrow="Ledger-based stock"
+        :title="$product->name"
+        :subtitle="$product->code.' · On hand minus active reservations'"
+    >
         <x-slot:actions>
             @if (! $readOnly)
                 @canany(['stock in', 'stock out', 'reserve stock', 'release stock', 'damage stock', 'adjust stock'])

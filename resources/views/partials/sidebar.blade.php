@@ -1,40 +1,54 @@
 <aside
     id="sidebar"
-    class="fixed inset-y-0 left-0 z-50 flex w-60 -translate-x-full flex-col border-r border-gray-200 bg-neutral-100 transition-transform duration-200 lg:static lg:translate-x-0 lg:shrink-0"
+    class="fixed inset-y-0 left-0 z-50 flex w-60 -translate-x-full flex-col border-r border-white/10 bg-sidebar text-white transition-transform duration-200 lg:static lg:translate-x-0 lg:shrink-0"
     aria-label="Main navigation"
 >
-    <div class="flex h-12 items-center justify-between border-b border-gray-200 px-3">
+    <div class="flex h-12 items-center justify-between border-b border-white/10 px-3">
         <div class="min-w-0">
-            <p class="truncate text-[13px] font-semibold tracking-tight text-gray-900">J4G Inventory</p>
-            <p class="truncate text-[11px] text-gray-500">Printing System</p>
+            <p class="truncate text-[13px] font-semibold tracking-tight text-white">J4G Printing</p>
+            <p class="truncate text-[11px] text-white/50">Operations</p>
         </div>
-        <button type="button" id="sidebar-close" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-white hover:text-gray-900 lg:hidden" aria-label="Close menu">
+        <button type="button" id="sidebar-close" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-white/60 hover:bg-white/10 hover:text-white lg:hidden" aria-label="Close menu">
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
     </div>
     <nav class="flex-1 space-y-0.5 overflow-y-auto p-2">
-        @php $linkClass = fn (bool $active) => $active ? 'bg-white text-gray-900 font-medium shadow-sm' : 'text-gray-600 hover:bg-white/80 hover:text-gray-900'; @endphp
+        @php
+            $linkClass = fn (bool $active) => $active
+                ? 'bg-brand/25 text-white font-medium'
+                : 'text-white/65 hover:bg-white/10 hover:text-white';
+        @endphp
+
+        <p class="px-2.5 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-white/35">Workspace</p>
+
         @can('view dashboard')
-            <a href="{{ route('dashboard') }}" class="{{ $linkClass(request()->routeIs('dashboard')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Dashboard</a>
+            <a href="{{ route('dashboard') }}" class="{{ $linkClass(request()->routeIs('dashboard')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Today</a>
+        @endcan
+        @can('view orders')
+            <a href="{{ route('orders.index') }}" class="{{ $linkClass(request()->routeIs('orders.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Orders</a>
+        @endcan
+        @can('view production')
+            <a href="{{ route('production.index') }}" class="{{ $linkClass(request()->routeIs('production.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Production</a>
         @endcan
         @can('view products')
-            <a href="{{ route('products.index') }}" class="{{ $linkClass(request()->routeIs('products.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Products</a>
+            <a href="{{ route('products.index') }}" class="{{ $linkClass(request()->routeIs('products.*') || request()->routeIs('inventory.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Inventory</a>
         @endcan
-        @canany(['view orders', 'view supplier orders'])
-            <p class="px-2.5 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">Orders</p>
+        @can('view customers')
+            <a href="{{ route('customers.index') }}" class="{{ $linkClass(request()->routeIs('customers.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Customers</a>
+        @endcan
+        @can('view finance')
+            <a href="{{ route('finance.index') }}" class="{{ $linkClass(request()->routeIs('finance.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Finance</a>
+        @endcan
+
+        @canany(['view supplier orders', 'use ai assistant', 'view stock history', 'view low stock report', 'view out of stock report'])
+            <p class="px-2.5 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-white/35">Tools</p>
         @endcanany
-        @can('view orders')
-            <a href="{{ route('orders.index') }}" class="{{ $linkClass(request()->routeIs('orders.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Customer Orders</a>
-        @endcan
         @can('use ai assistant')
             <a href="{{ route('ai.order-assistant.index') }}" class="{{ $linkClass(request()->routeIs('ai.order-assistant.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">AI Order Assistant</a>
         @endcan
         @can('view supplier orders')
             <a href="{{ route('supplier-orders.index') }}" class="{{ $linkClass(request()->routeIs('supplier-orders.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Supplier Orders</a>
         @endcan
-        @canany(['view stock history', 'view low stock report', 'view out of stock report'])
-            <p class="px-2.5 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">Reports</p>
-        @endcanany
         @can('view stock history')
             <a href="{{ route('reports.stock-history') }}" class="{{ $linkClass(request()->routeIs('reports.stock-history')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Stock History</a>
         @endcan
@@ -44,8 +58,9 @@
         @can('view out of stock report')
             <a href="{{ route('reports.out-of-stock') }}" class="{{ $linkClass(request()->routeIs('reports.out-of-stock')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Out of Stock</a>
         @endcan
+
         @canany(['manage users', 'manage roles', 'manage sizes', 'manage colors', 'manage suppliers', 'manage integrations'])
-            <p class="px-2.5 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">Administration</p>
+            <p class="px-2.5 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-white/35">Administration</p>
         @endcanany
         @can('manage users')
             <a href="{{ route('admin.users.index') }}" class="{{ $linkClass(request()->routeIs('admin.users.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Users</a>

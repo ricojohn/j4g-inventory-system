@@ -19,14 +19,14 @@
         @endif
     @endauth
 </head>
-<body class="min-h-screen bg-gray-50 font-sans text-gray-900 antialiased">
+<body class="min-h-screen bg-surface font-sans text-gray-900 antialiased">
     @auth
         <div id="sidebar-backdrop" class="fixed inset-0 z-40 hidden bg-gray-900/40 lg:hidden" aria-hidden="true"></div>
         <div class="flex min-h-screen">
             @include('partials.sidebar')
             <div class="flex min-w-0 flex-1 flex-col">
                 @include('partials.navbar')
-                <main class="w-full flex-1 px-4 py-4 md:px-6 lg:px-6">
+                <main class="w-full flex-1 px-5 py-5 sm:px-6 md:px-8 lg:px-10 xl:px-12">
                     @include('partials.alerts')
                     @yield('content')
                 </main>
