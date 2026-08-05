@@ -3,10 +3,14 @@
 @section('page-title', 'Products')
 
 @section('content')
-    <x-ui.page-header title="Products">
+    <x-ui.page-header
+        eyebrow="Ledger-based stock"
+        title="Inventory"
+        subtitle="On hand minus active reservations, across enabled stocked variants."
+    >
         @can('create products')
             <x-slot:actions>
-                <x-ui.button :href="route('products.create')">Add Product</x-ui.button>
+                <x-ui.button :href="route('products.create')">+ Add product</x-ui.button>
             </x-slot:actions>
         @endcan
     </x-ui.page-header>

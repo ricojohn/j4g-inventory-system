@@ -13,6 +13,28 @@
                 <h2 class="text-[13px] font-semibold text-gray-900">Customer Information</h2>
             </div>
             <div class="space-y-4 p-4">
+                <div>
+                    <x-ui.label for="customer_id">Existing customer</x-ui.label>
+                    <x-ui.select id="customer_id" name="customer_id">
+                        <option value="">— New / walk-in (enter details below) —</option>
+                        @foreach ($customers as $customer)
+                            <option
+                                value="{{ $customer->id }}"
+                                @selected((string) old('customer_id') === (string) $customer->id)
+                                data-name="{{ $customer->name }}"
+                                data-handle="{{ $customer->handle }}"
+                                data-contact="{{ $customer->contact }}"
+                                data-source="{{ $customer->source?->value }}"
+                                data-notes="{{ $customer->notes }}"
+                            >
+                                {{ $customer->name }}
+                                @if ($customer->handle) ({{ $customer->handle }}) @endif
+                            </option>
+                        @endforeach
+                    </x-ui.select>
+                    <p class="mt-1 text-[11px] text-gray-500">Selecting a profile fills name, contact, source, and notes.</p>
+                    @error('customer_id')<p class="mt-1 text-[12px] text-red-600">{{ $message }}</p>@enderror
+                </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <x-ui.label for="customer_name">Customer Name *</x-ui.label>
@@ -37,6 +59,11 @@
                         </x-ui.select>
                         @error('customer_source')<p class="mt-1 text-[12px] text-red-600">{{ $message }}</p>@enderror
                     </div>
+                    <div>
+                        <x-ui.label for="due_date">Due date</x-ui.label>
+                        <x-ui.input id="due_date" name="due_date" type="date" :value="old('due_date')" />
+                        @error('due_date')<p class="mt-1 text-[12px] text-red-600">{{ $message }}</p>@enderror
+                    </div>
                 </div>
                 <div>
                     <x-ui.label for="customer_notes">Customer Notes</x-ui.label>
@@ -48,12 +75,12 @@
 
         <x-ui.page-card>
             <div class="border-b border-gray-200 px-4 py-3">
-                <h2 class="text-[13px] font-semibold text-gray-900">Order Reference Image</h2>
-                <p class="mt-0.5 text-[12px] text-gray-500">Optional screenshot or photo of the customer's order for summary purposes.</p>
+                <h2 class="text-[13px] font-semibold text-gray-900">Layout Image</h2>
+                <p class="mt-0.5 text-[12px] text-gray-500">Optional design layout for this order. Stored as layout v1 and can be revised later.</p>
             </div>
             <div class="space-y-3 p-4">
                 <div id="order-image-preview" class="hidden">
-                    <img id="order-image-preview-img" src="" alt="Order reference preview" class="max-h-48 rounded-lg border border-gray-200 object-contain" />
+                    <img id="order-image-preview-img" src="" alt="Layout preview" class="max-h-48 rounded-lg border border-gray-200 object-contain" />
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <input
@@ -100,6 +127,10 @@
                         <x-ui.label for="line-qty">Qty</x-ui.label>
                         <x-ui.input id="line-qty" type="number" min="1" value="1" />
                     </div>
+                    <div class="w-28">
+                        <x-ui.label for="line-unit-price">Unit price</x-ui.label>
+                        <x-ui.input id="line-unit-price" type="number" min="0" step="0.01" value="0" />
+                    </div>
                     <x-ui.button type="button" variant="secondary" id="add-line-item">Add Item</x-ui.button>
                 </div>
 
@@ -112,12 +143,13 @@
                                 <th>Color</th>
                                 <th>Size</th>
                                 <th>Qty</th>
+                                <th>Unit price</th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody id="line-items-body">
                             <tr id="line-items-empty">
-                                <td colspan="6" class="text-center text-[13px] text-gray-500">No line items yet.</td>
+                                <td colspan="7" class="text-center text-[13px] text-gray-500">No line items yet.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -156,6 +188,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const orderImagePreview = document.getElementById('order-image-preview');
     const orderImagePreviewImg = document.getElementById('order-image-preview-img');
     const orderImageRemove = document.getElementById('order-image-remove');
+    const customerPicker = document.getElementById('customer_id');
+    const customerNameInput = document.getElementById('customer_name');
+    const customerContactInput = document.getElementById('customer_contact');
+    const customerSourceSelect = document.getElementById('customer_source');
+    const customerNotesInput = document.getElementById('customer_notes');
+
+    customerPicker?.addEventListener('change', () => {
+        const option = customerPicker.selectedOptions[0];
+        if (!option || !option.value) {
+            return;
+        }
+
+        if (customerNameInput) {
+            customerNameInput.value = option.dataset.name ?? '';
+        }
+        if (customerContactInput) {
+            customerContactInput.value = option.dataset.contact || option.dataset.handle || '';
+        }
+        if (customerSourceSelect && option.dataset.source) {
+            customerSourceSelect.value = option.dataset.source;
+        }
+        if (customerNotesInput) {
+            customerNotesInput.value = option.dataset.notes ?? '';
+        }
+    });
 
     const clearOrderImagePreview = () => {
         orderImagePreview?.classList.add('hidden');
@@ -264,6 +321,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <input type="hidden" name="items[${index}][product_color_size_id]" value="${item.cell_id}" />
                     <input type="number" name="items[${index}][quantity_ordered]" value="${item.quantity}" min="1" class="ui-input w-20" required />
                 </td>
+                <td>
+                    <input type="number" name="items[${index}][unit_price]" value="${item.unit_price}" min="0" step="0.01" class="ui-input w-24" />
+                </td>
                 <td><button type="button" class="ui-row-action ui-row-action-danger remove-line" data-index="${index}">Remove</button></td>
             `;
             lineItemsBody.appendChild(row);
@@ -273,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('add-line-item')?.addEventListener('click', () => {
         const cellId = Number(sizePicker?.value);
         const qty = Number(document.getElementById('line-qty')?.value ?? 1);
+        const unitPrice = Number(document.getElementById('line-unit-price')?.value ?? 0);
         const cell = availableCells.find((entry) => entry.cell_id === cellId);
 
         if (!cell || qty < 1) {
@@ -293,6 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
             size_name: cell.size_name,
             image_url: cell.image_url ?? '',
             quantity: qty,
+            unit_price: Number.isFinite(unitPrice) && unitPrice >= 0 ? unitPrice : 0,
         });
 
         renderLineItems();

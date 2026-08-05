@@ -11,7 +11,7 @@
     }
 @endphp
 
-<header class="sticky top-0 z-30 flex h-12 items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 md:px-6">
+<header class="sticky top-0 z-30 flex h-12 items-center justify-between gap-3 border-b border-gray-200 bg-white px-5 sm:px-6 md:px-8 lg:px-10 xl:px-12">
     <div class="flex min-w-0 items-center gap-2">
         <button
             type="button"
@@ -23,8 +23,18 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
         </button>
+        <span class="hidden rounded-md bg-brand-soft px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-brand sm:inline">
+            {{ config('app.name') }}
+        </span>
+        <span class="hidden text-[12px] text-gray-500 md:inline">{{ now()->format('l, j F') }}</span>
     </div>
     <div class="flex shrink-0 items-center gap-2">
+        @can('create orders')
+            <x-ui.button href="{{ route('orders.create') }}" variant="primary" class="hidden sm:inline-flex">
+                + New order
+            </x-ui.button>
+        @endcan
+
         <div class="relative">
             <button
                 type="button"
@@ -59,7 +69,7 @@
             <button
                 type="button"
                 id="user-menu-button"
-                class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-[12px] font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2"
+                class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand text-[12px] font-semibold text-white hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/30 focus:ring-offset-2"
                 aria-label="Account menu"
                 aria-expanded="false"
                 aria-haspopup="true"

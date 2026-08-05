@@ -12,27 +12,45 @@ use App\Models\ProductColorSize;
 use App\Models\StockMovement;
 use App\Models\SupplierOrder;
 use App\Services\InventoryService;
+use App\Support\OrderOpsPresenter;
 use App\Support\PaginatedJsonResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
     private const AVAILABLE_STOCK_SQL = '(product_color_sizes.current_stock - product_color_sizes.reserved_quantity)';
 
-    public function __construct(private InventoryService $inventoryService) {}
+    public function __construct(
+        private InventoryService $inventoryService,
+        private OrderOpsPresenter $orderOpsPresenter,
+    ) {}
 
     public function index(Request $request): View
     {
         abort_unless($request->user()?->can('view dashboard'), 403);
 
         $stats = $this->computeStats();
+        $attention = $this->orderOpsPresenter->attentionFeed(8);
+        $pulse = $this->productionPulse();
+        $shortagePieces = $this->shortagePieceCount();
+        $blockerCount = $attention->count();
 
         return view('dashboard.index', [
-            'totalProducts' => $stats['total_products'],
+            'greetingName' => $request->user()->name,
+            'dueTodayCount' => $stats['due_today_count'],
+            'overdueCount' => $stats['overdue_count'],
+            'shortagePieces' => $shortagePieces,
+            'shortageSkuCount' => $stats['low_stock_count'] + $stats['out_of_stock_count'],
+            'receivablesDisplay' => $stats['receivables_display'],
+            'receivablesInvoiceCount' => $stats['receivables_invoice_count'],
+            'productionBlockers' => $blockerCount,
+            'attentionItems' => $attention,
+            'pulse' => $pulse,
             'totalStock' => $stats['total_stock'],
             'totalReserved' => $stats['total_reserved'],
             'totalAvailable' => $stats['total_available'],
@@ -40,6 +58,7 @@ class DashboardController extends Controller
             'outOfStockCount' => $stats['out_of_stock_count'],
             'openOrders' => $stats['open_orders'],
             'openPos' => $stats['open_pos'],
+            'primaryAction' => $attention->first(),
         ]);
     }
 
@@ -239,6 +258,37 @@ class DashboardController extends Controller
             }
         }
 
+        $openOrdersQuery = CustomerOrder::query()
+            ->whereNotIn('status', [CustomerOrderStatus::Fulfilled, CustomerOrderStatus::Cancelled]);
+
+        $dueTodayCount = 0;
+        $overdueCount = 0;
+        $receivablesTotal = 0.0;
+        $receivablesInvoiceCount = 0;
+
+        if (Schema::hasColumn('customer_orders', 'due_date')) {
+            $dueTodayCount = (clone $openOrdersQuery)
+                ->whereDate('due_date', today())
+                ->count();
+            $overdueCount = (clone $openOrdersQuery)
+                ->whereNotNull('due_date')
+                ->whereDate('due_date', '<', today())
+                ->count();
+        }
+
+        if (Schema::hasColumn('customer_orders', 'order_total')
+            && Schema::hasColumn('customer_orders', 'amount_paid')) {
+            $receivableOrders = CustomerOrder::query()
+                ->whereNotIn('status', [CustomerOrderStatus::Cancelled])
+                ->whereRaw('order_total > amount_paid')
+                ->get(['order_total', 'amount_paid']);
+
+            $receivablesInvoiceCount = $receivableOrders->count();
+            $receivablesTotal = (float) $receivableOrders->sum(
+                fn (CustomerOrder $order) => (float) $order->order_total - (float) $order->amount_paid
+            );
+        }
+
         return [
             'total_products' => Product::query()->where('status', 'active')->count(),
             'total_stock' => $totalStock,
@@ -246,13 +296,56 @@ class DashboardController extends Controller
             'total_available' => $totalStock - $totalReserved,
             'low_stock_count' => $lowStockCount,
             'out_of_stock_count' => $outOfStockCount,
-            'open_orders' => CustomerOrder::query()
-                ->whereNotIn('status', [CustomerOrderStatus::Fulfilled, CustomerOrderStatus::Cancelled])
-                ->count(),
+            'open_orders' => (clone $openOrdersQuery)->count(),
             'open_pos' => SupplierOrder::query()
                 ->whereNotIn('status', [SupplierOrderStatus::Received, SupplierOrderStatus::Cancelled])
                 ->count(),
+            'due_today_count' => $dueTodayCount,
+            'overdue_count' => $overdueCount,
+            'receivables_display' => $receivablesTotal > 0
+                ? '₱'.number_format($receivablesTotal / 1000, 1).'k'
+                : '—',
+            'receivables_invoice_count' => $receivablesInvoiceCount,
         ];
+    }
+
+    /**
+     * @return list<array{label: string, count: int, color: string}>
+     */
+    private function productionPulse(): array
+    {
+        $open = CustomerOrder::query()
+            ->whereNotIn('status', [CustomerOrderStatus::Fulfilled, CustomerOrderStatus::Cancelled])
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        return [
+            [
+                'label' => 'Pending',
+                'count' => (int) ($open[CustomerOrderStatus::Pending->value] ?? 0),
+                'color' => 'bg-gray-400',
+            ],
+            [
+                'label' => 'Partial',
+                'count' => (int) ($open[CustomerOrderStatus::PartiallyReserved->value] ?? 0),
+                'color' => 'bg-amber-500',
+            ],
+            [
+                'label' => 'Reserved',
+                'count' => (int) ($open[CustomerOrderStatus::Reserved->value] ?? 0),
+                'color' => 'bg-brand',
+            ],
+        ];
+    }
+
+    private function shortagePieceCount(): int
+    {
+        return (int) CustomerOrder::query()
+            ->whereNotIn('status', [CustomerOrderStatus::Fulfilled, CustomerOrderStatus::Cancelled])
+            ->with('items')
+            ->get()
+            ->sum(fn (CustomerOrder $order) => $this->orderOpsPresenter->shortageQuantity($order));
     }
 
     /**

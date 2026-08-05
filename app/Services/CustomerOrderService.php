@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\CustomerOrderStatus;
+use App\Enums\ProductionStage;
 use App\Models\CustomerOrder;
 use App\Models\CustomerOrderItem;
 use App\Support\ProductCellLookup;
@@ -94,7 +95,10 @@ class CustomerOrderService
                 ]);
             }
 
-            $order->update(['status' => CustomerOrderStatus::Fulfilled]);
+            $order->update([
+                'status' => CustomerOrderStatus::Fulfilled,
+                'production_stage' => ProductionStage::Completed,
+            ]);
         });
     }
 
@@ -134,12 +138,19 @@ class CustomerOrderService
 
         if ($items->every(fn (CustomerOrderItem $item) => $item->status === 'fulfilled')) {
             $order->status = CustomerOrderStatus::Fulfilled;
+            $order->production_stage = ProductionStage::Completed;
         } elseif ($items->every(fn (CustomerOrderItem $item) => $item->status === 'cancelled')) {
             $order->status = CustomerOrderStatus::Cancelled;
         } elseif ($items->every(fn (CustomerOrderItem $item) => $item->status === 'reserved')) {
             $order->status = CustomerOrderStatus::Reserved;
+            if ($order->production_stage === null) {
+                $order->production_stage = ProductionStage::Ready;
+            }
         } else {
             $order->status = CustomerOrderStatus::PartiallyReserved;
+            if ($order->production_stage === null) {
+                $order->production_stage = ProductionStage::Ready;
+            }
         }
 
         $order->save();

@@ -1,0 +1,45 @@
+---
+description: After large feature/UI prompts, run migrate, seed, optimize, and frontend build/dev
+alwaysApply: true
+---
+
+# Post–Big-Prompt Cleanup
+
+After finishing a **large** implementation (multi-file feature, new domain, major UI redesign, roadmap phase, or any prompt that changed migrations, seeders, routes, Vite entries, or many views), run this wrap-up before declaring done.
+
+## Required sequence (PowerShell)
+
+Use `;` between commands (not `&&`):
+
+```powershell
+php artisan migrate --no-interaction --force
+php artisan db:seed --no-interaction --force
+php artisan optimize
+npm run build
+```
+
+Then ensure the Vite dev server is running for local UI work:
+
+```powershell
+npm run dev
+```
+
+- If `npm run dev` is **already** running in a terminal, do not start a second one.
+- If only a one-shot verify is needed and `npm run dev` is already up, `npm run build` alone is enough for production assets; still run migrate/seed/optimize when schema or PHP caches changed.
+
+## When this applies
+
+- New migrations, models, permissions, seeders
+- New Vite entrypoints (`vite.config.js`) or large Blade/CSS/JS changes
+- Multi-phase / “implement the plan” / full-page redesign prompts
+
+## When to skip
+
+- Tiny one-file edits, copy tweaks, or questions with no code changes
+- Read-only investigation
+
+## Notes
+
+- Prefer `--no-interaction` / `--force` on Artisan so commands do not hang.
+- `db:seed` refreshes seeded reference data (permissions/users/etc.); do not invent a custom wipe of business data.
+- After `php artisan optimize`, remember cached config can affect tests — if Feature tests start hitting the wrong DB, run `php artisan config:clear` before `php artisan test`.

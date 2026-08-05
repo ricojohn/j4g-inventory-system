@@ -3,14 +3,16 @@
 @php
     $baseClasses = 'block rounded-xl border border-gray-200 bg-white p-4 shadow-sm';
     $interactiveClasses = $href
-        ? 'cursor-pointer transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900'
+        ? 'cursor-pointer transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand'
         : '';
     $cardClasses = trim($baseClasses.' '.$interactiveClasses);
 
     $iconBg = match ($accent) {
         'warning' => 'bg-amber-50 text-amber-600',
         'danger' => 'bg-red-50 text-red-600',
-        default => 'bg-slate-50 text-slate-600',
+        'info' => 'bg-brand-soft text-brand',
+        'purple' => 'bg-purple-50 text-purple-600',
+        default => 'bg-brand-soft text-brand',
     };
 
     $icons = [

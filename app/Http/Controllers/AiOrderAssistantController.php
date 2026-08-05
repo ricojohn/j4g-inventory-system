@@ -11,6 +11,7 @@ use App\Http\Requests\TableDataRequest;
 use App\Http\Requests\UpdateDraftRequest;
 use App\Http\Requests\UploadDraftImageRequest;
 use App\Models\AiOrderDraft;
+use App\Models\Customer;
 use App\Models\Product;
 use App\Services\Ai\AiProviderManager;
 use App\Services\AiOrderDraftService;
@@ -38,17 +39,29 @@ class AiOrderAssistantController extends Controller
         $defaultProviderKey = $this->aiProviderManager->getDefaultProviderKey();
         $currentProvider = collect($providers)->firstWhere('provider', $defaultProviderKey);
         $connected = filled($defaultProviderKey);
+        $customers = Customer::query()->orderBy('name')->get(['id', 'name', 'handle', 'contact', 'source', 'notes']);
 
         return view('ai.order-assistant.index', [
             'connected' => $connected,
             'currentProvider' => $currentProvider,
             'providers' => $providers,
             'canManageIntegrations' => $request->user()->can('manage integrations'),
+            'canManageCustomers' => $request->user()->can('manage customers'),
             'customerSources' => CustomerSource::cases(),
+            'customers' => $customers,
             'products' => Product::query()->where('status', 'active')->orderBy('name')->get(['id', 'name', 'code']),
             'assistantConfig' => [
                 'connected' => $connected,
                 'currentProvider' => $currentProvider,
+                'canManageCustomers' => $request->user()->can('manage customers'),
+                'customers' => $customers->map(fn (Customer $customer) => [
+                    'id' => $customer->id,
+                    'name' => $customer->name,
+                    'handle' => $customer->handle,
+                    'contact' => $customer->contact,
+                    'source' => $customer->source?->value,
+                    'notes' => $customer->notes,
+                ])->values(),
                 'products' => Product::query()->where('status', 'active')->orderBy('name')->get(['id', 'name', 'code'])->map(fn (Product $product) => [
                     'id' => $product->id,
                     'name' => $product->name,
@@ -250,12 +263,12 @@ class AiOrderAssistantController extends Controller
             Storage::disk('public')->delete($draft->image_path);
         }
 
-        $path = $request->file('image')->store('order-images', 'public');
+        $path = $request->file('image')->store('order-layouts', 'public');
         $draft->update(['image_path' => $path]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Reference image uploaded.',
+            'message' => 'Layout image uploaded.',
             'image_url' => $draft->fresh()->imageUrl(),
         ]);
     }
@@ -278,7 +291,7 @@ class AiOrderAssistantController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Reference image removed.',
+            'message' => 'Layout image removed.',
         ]);
     }
 

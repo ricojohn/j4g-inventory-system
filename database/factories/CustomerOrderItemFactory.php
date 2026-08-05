@@ -20,6 +20,7 @@ class CustomerOrderItemFactory extends Factory
             'product_color_size_id' => 1,
             'quantity_ordered' => fake()->numberBetween(1, 20),
             'quantity_reserved' => 0,
+            'unit_price' => fake()->randomFloat(2, 50, 500),
             'status' => 'pending',
         ];
     }

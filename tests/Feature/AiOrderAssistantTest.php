@@ -3,6 +3,7 @@
 use App\Enums\AiOrderDraftStatus;
 use App\Enums\CustomerOrderStatus;
 use App\Models\AiOrderDraft;
+use App\Models\Customer;
 use App\Models\CustomerOrder;
 use App\Models\Integration;
 use App\Models\ProductColorSize;
@@ -248,9 +249,78 @@ test('draft conversion creates customer order', function () {
 
     $draft->refresh();
 
+    $order = CustomerOrder::query()->first();
+    $customer = Customer::query()->where('name', 'Juan Dela Cruz')->first();
+
     expect(CustomerOrder::query()->count())->toBe(1)
         ->and($draft->status)->toBe(AiOrderDraftStatus::Converted)
-        ->and($draft->customer_order_id)->not->toBeNull();
+        ->and($draft->customer_order_id)->not->toBeNull()
+        ->and($customer)->not->toBeNull()
+        ->and($order->customer_id)->toBe($customer->id);
+});
+
+test('draft conversion links selected existing customer', function () {
+    $cell = createTestCell(20);
+    $customer = Customer::factory()->create([
+        'name' => 'Existing Client',
+        'contact' => '09171234567',
+        'source' => 'viber',
+    ]);
+
+    $draft = AiOrderDraft::factory()->create([
+        'status' => AiOrderDraftStatus::Draft,
+        'created_by' => userWithRole('Staff')->id,
+    ]);
+
+    $this->actingAs(userWithRole('Staff'))
+        ->postJson(route('ai.order-assistant.drafts.convert', $draft), [
+            'customer_id' => $customer->id,
+            'create_customer' => false,
+            'customer_name' => $customer->name,
+            'customer_contact' => $customer->contact,
+            'customer_source' => 'viber',
+            'items' => [
+                ['product_color_size_id' => $cell->id, 'quantity' => 2],
+            ],
+        ])
+        ->assertOk()
+        ->assertJsonPath('success', true);
+
+    $order = CustomerOrder::query()->first();
+
+    expect(Customer::query()->count())->toBe(1)
+        ->and($order->customer_id)->toBe($customer->id)
+        ->and($order->customer_name)->toBe('Existing Client');
+});
+
+test('draft conversion creates new customer when none selected', function () {
+    $cell = createTestCell(20);
+
+    $draft = AiOrderDraft::factory()->create([
+        'status' => AiOrderDraftStatus::Draft,
+        'created_by' => userWithRole('Staff')->id,
+    ]);
+
+    $this->actingAs(userWithRole('Staff'))
+        ->postJson(route('ai.order-assistant.drafts.convert', $draft), [
+            'create_customer' => true,
+            'customer_name' => 'Brand New Client',
+            'customer_contact' => '@brandnew',
+            'customer_source' => 'instagram',
+            'customer_notes' => 'From AI assistant',
+            'items' => [
+                ['product_color_size_id' => $cell->id, 'quantity' => 3],
+            ],
+        ])
+        ->assertOk();
+
+    $customer = Customer::query()->where('name', 'Brand New Client')->first();
+    $order = CustomerOrder::query()->first();
+
+    expect($customer)->not->toBeNull()
+        ->and($customer->contact)->toBe('@brandnew')
+        ->and($customer->source->value)->toBe('instagram')
+        ->and($order->customer_id)->toBe($customer->id);
 });
 
 test('converted order triggers reservation workflow', function () {

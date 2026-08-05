@@ -7,12 +7,15 @@ use App\Http\Controllers\Admin\SupplierController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AiOrderAssistantController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerOrderController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ProductColorController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ProductSizeController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SupplierOrderController;
@@ -189,6 +192,14 @@ Route::middleware('auth')->group(function () {
         ->middleware('permission:view orders')
         ->name('orders.data');
 
+    Route::get('/orders/board/data', [CustomerOrderController::class, 'boardData'])
+        ->middleware('permission:view orders')
+        ->name('orders.board.data');
+
+    Route::get('/orders/board', [CustomerOrderController::class, 'board'])
+        ->middleware('permission:view orders')
+        ->name('orders.board');
+
     Route::get('/orders/product-cells', [CustomerOrderController::class, 'productCells'])
         ->middleware('permission:create orders')
         ->name('orders.product-cells');
@@ -216,6 +227,78 @@ Route::middleware('auth')->group(function () {
     Route::post('/orders/{order}/cancel', [CustomerOrderController::class, 'cancel'])
         ->middleware('permission:cancel orders')
         ->name('orders.cancel');
+
+    Route::post('/orders/{order}/layouts', [CustomerOrderController::class, 'storeLayout'])
+        ->middleware('permission:fulfill orders')
+        ->name('orders.layouts.store');
+
+    Route::post('/orders/{order}/layouts/{layout}/approve', [CustomerOrderController::class, 'approveLayout'])
+        ->middleware('permission:fulfill orders')
+        ->name('orders.layouts.approve');
+
+    Route::put('/orders/{order}/delivery', [CustomerOrderController::class, 'updateDelivery'])
+        ->middleware('permission:fulfill orders')
+        ->name('orders.delivery.update');
+
+    Route::post('/orders/{order}/release', [CustomerOrderController::class, 'release'])
+        ->middleware('permission:fulfill orders')
+        ->name('orders.release');
+
+    Route::get('/customers/data', [CustomerController::class, 'data'])
+        ->middleware('permission:view customers')
+        ->name('customers.data');
+
+    Route::get('/customers/create', [CustomerController::class, 'create'])
+        ->middleware('permission:manage customers')
+        ->name('customers.create');
+
+    Route::get('/customers', [CustomerController::class, 'index'])
+        ->middleware('permission:view customers')
+        ->name('customers.index');
+
+    Route::post('/customers', [CustomerController::class, 'store'])
+        ->middleware('permission:manage customers')
+        ->name('customers.store');
+
+    Route::get('/customers/{customer}', [CustomerController::class, 'show'])
+        ->middleware('permission:view customers')
+        ->name('customers.show');
+
+    Route::get('/customers/{customer}/edit', [CustomerController::class, 'edit'])
+        ->middleware('permission:manage customers')
+        ->name('customers.edit');
+
+    Route::put('/customers/{customer}', [CustomerController::class, 'update'])
+        ->middleware('permission:manage customers')
+        ->name('customers.update');
+
+    Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])
+        ->middleware('permission:manage customers')
+        ->name('customers.destroy');
+
+    Route::get('/finance', [FinanceController::class, 'index'])
+        ->middleware('permission:view finance')
+        ->name('finance.index');
+
+    Route::post('/orders/{order}/payments', [FinanceController::class, 'storePayment'])
+        ->middleware('permission:manage finance')
+        ->name('orders.payments.store');
+
+    Route::post('/orders/{order}/payments/{payment}/reverse', [FinanceController::class, 'reversePayment'])
+        ->middleware('permission:manage finance')
+        ->name('orders.payments.reverse');
+
+    Route::get('/production/board/data', [ProductionController::class, 'boardData'])
+        ->middleware('permission:view production')
+        ->name('production.board.data');
+
+    Route::get('/production', [ProductionController::class, 'index'])
+        ->middleware('permission:view production')
+        ->name('production.index');
+
+    Route::post('/production/{order}/advance', [ProductionController::class, 'advance'])
+        ->middleware('permission:manage production')
+        ->name('production.advance');
 
     Route::get('/supplier-orders/data', [SupplierOrderController::class, 'data'])
         ->middleware('permission:view supplier orders')

@@ -2,6 +2,7 @@
 
 use App\Enums\CustomerOrderStatus;
 use App\Enums\MovementType;
+use App\Models\Customer;
 use App\Models\CustomerOrder;
 use App\Models\StockMovement;
 use App\Models\SupplierOrder;
@@ -34,6 +35,47 @@ test('order auto reserved on store', function () {
     expect($order->status)->toBe(CustomerOrderStatus::Reserved)
         ->and($order->items->first()->quantity_reserved)->toBe(10)
         ->and($cell->reserved_quantity)->toBe(10);
+});
+
+test('create form exposes customer picker and stores linked customer pricing and due date', function () {
+    $customer = Customer::factory()->create([
+        'name' => 'Northside Falcons',
+        'contact' => '09170001111',
+        'source' => 'facebook',
+    ]);
+    $cell = createTestCell(50);
+
+    $this->actingAs(userWithRole('Staff'))
+        ->get(route('orders.create'))
+        ->assertOk()
+        ->assertSee('Existing customer')
+        ->assertSee('Due date')
+        ->assertSee('Unit price')
+        ->assertSee('Northside Falcons');
+
+    $this->actingAs(userWithRole('Staff'))
+        ->post(route('orders.store'), [
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_contact' => $customer->contact,
+            'customer_source' => 'facebook',
+            'due_date' => now()->addDays(7)->toDateString(),
+            'items' => [
+                [
+                    'product_color_size_id' => $cell->id,
+                    'quantity_ordered' => 4,
+                    'unit_price' => 650,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $order = CustomerOrder::query()->latest('id')->first();
+
+    expect($order->customer_id)->toBe($customer->id)
+        ->and($order->due_date?->toDateString())->toBe(now()->addDays(7)->toDateString())
+        ->and((float) $order->order_total)->toBe(2600.0)
+        ->and((float) $order->items->first()->unit_price)->toBe(650.0);
 });
 
 test('full stock becomes reserved with no PO created', function () {

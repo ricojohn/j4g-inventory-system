@@ -45,6 +45,12 @@ class PermissionSeeder extends Seeder
             'cancel supplier orders',
             'manage integrations',
             'use ai assistant',
+            'view customers',
+            'manage customers',
+            'view finance',
+            'manage finance',
+            'view production',
+            'manage production',
         ];
 
         foreach ($permissions as $permission) {
@@ -87,6 +93,12 @@ class PermissionSeeder extends Seeder
             'create supplier orders',
             'receive supplier orders',
             'use ai assistant',
+            'view customers',
+            'manage customers',
+            'view finance',
+            'manage finance',
+            'view production',
+            'manage production',
         ])->get();
         $staff->syncPermissions($staffPermissions);
 
@@ -99,6 +111,9 @@ class PermissionSeeder extends Seeder
             'view out of stock report',
             'view orders',
             'view supplier orders',
+            'view customers',
+            'view finance',
+            'view production',
         ])->get();
         $viewer->syncPermissions($viewerPermissions);
     }

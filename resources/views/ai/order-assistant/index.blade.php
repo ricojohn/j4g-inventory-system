@@ -102,6 +102,32 @@
 
                 <div class="space-y-4 p-4">
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div class="sm:col-span-2">
+                            <x-ui.label for="preview-customer-id">Customer</x-ui.label>
+                            <x-ui.select id="preview-customer-id">
+                                <option value="">{{ $canManageCustomers ? '+ Create new customer' : 'Select existing customer...' }}</option>
+                                @foreach ($customers as $customer)
+                                    <option
+                                        value="{{ $customer->id }}"
+                                        data-name="{{ $customer->name }}"
+                                        data-handle="{{ $customer->handle }}"
+                                        data-contact="{{ $customer->contact }}"
+                                        data-source="{{ $customer->source?->value }}"
+                                        data-notes="{{ $customer->notes }}"
+                                    >
+                                        {{ $customer->name }}
+                                        @if ($customer->handle) ({{ $customer->handle }}) @endif
+                                    </option>
+                                @endforeach
+                            </x-ui.select>
+                            <p id="preview-customer-hint" class="mt-1 text-[12px] text-gray-500">
+                                @if ($canManageCustomers)
+                                    Select an existing customer, or leave as “Create new” to add one from the details below.
+                                @else
+                                    Select an existing customer to link this order.
+                                @endif
+                            </p>
+                        </div>
                         <div>
                             <x-ui.label for="preview-customer-name">Customer Name *</x-ui.label>
                             <x-ui.input id="preview-customer-name" type="text" placeholder="Customer name" />
@@ -125,10 +151,10 @@
                     </div>
 
                     <div class="rounded-lg border border-gray-200 p-4">
-                        <x-ui.label for="draft-order-image">Order Reference Image</x-ui.label>
-                        <p class="mt-0.5 text-[12px] text-gray-500">Optional screenshot or photo of the customer's order for summary purposes.</p>
+                        <x-ui.label for="draft-order-image">Layout Image</x-ui.label>
+                        <p class="mt-0.5 text-[12px] text-gray-500">Optional design layout for this order. Becomes layout v1 when converted.</p>
                         <div id="draft-image-preview" class="mt-3 hidden">
-                            <img id="draft-image-preview-img" src="" alt="Order reference preview" class="max-h-48 rounded-lg border border-gray-200 object-contain" />
+                            <img id="draft-image-preview-img" src="" alt="Layout preview" class="max-h-48 rounded-lg border border-gray-200 object-contain" />
                         </div>
                         <div class="mt-3 flex flex-wrap items-center gap-2">
                             <input
@@ -172,7 +198,7 @@
         <div class="ui-modal-panel max-w-lg overflow-hidden">
             <div class="ui-modal-header">
                 <h2 id="convert-confirm-title" class="text-[13px] font-semibold text-gray-900">Confirm Customer Order</h2>
-                <p class="mt-0.5 text-[12px] text-gray-500">These line items will be created on the customer order.</p>
+                <p id="convert-confirm-customer" class="mt-0.5 text-[12px] text-gray-500"></p>
             </div>
             <div class="ui-modal-body">
                 <div class="overflow-x-auto">

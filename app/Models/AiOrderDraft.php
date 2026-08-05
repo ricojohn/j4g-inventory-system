@@ -56,10 +56,10 @@ class AiOrderDraft extends Model
 
     public function imageUrl(): ?string
     {
-        if (blank($this->image_path)) {
+        if (blank($this->image_path) || ! Storage::disk('public')->exists($this->image_path)) {
             return null;
         }
 
-        return Storage::disk('public')->url($this->image_path);
+        return asset('storage/'.$this->image_path);
     }
 }
