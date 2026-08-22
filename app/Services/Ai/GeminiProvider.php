@@ -254,10 +254,13 @@ class GeminiProvider extends AbstractAiProvider
                         continue;
                     }
 
+                    $arguments = is_array($call['arguments'] ?? null) ? $call['arguments'] : [];
+
                     $parts[] = [
                         'functionCall' => [
                             'name' => (string) ($call['name'] ?? ''),
-                            'args' => is_array($call['arguments'] ?? null) ? $call['arguments'] : [],
+                            // Gemini Struct fields must be JSON objects; PHP [] encodes as a list.
+                            'args' => $this->asGeminiObject($arguments),
                         ],
                     ];
                 }
@@ -285,7 +288,7 @@ class GeminiProvider extends AbstractAiProvider
                         [
                             'functionResponse' => [
                                 'name' => (string) ($message['name'] ?? ''),
-                                'response' => $responsePayload,
+                                'response' => $this->asGeminiObject($responsePayload),
                             ],
                         ],
                     ],
@@ -294,6 +297,16 @@ class GeminiProvider extends AbstractAiProvider
         }
 
         return [$systemInstruction, $contents];
+    }
+
+    /**
+     * Gemini protobuf Struct fields must serialize as JSON objects, never arrays.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function asGeminiObject(array $data): object
+    {
+        return (object) $data;
     }
 
     private function endpoint(string $model, string $apiKey): string

@@ -187,3 +187,70 @@ test('staff cannot export assistance reports', function () {
         ])
         ->assertForbidden();
 });
+
+test('gemini tool loop sends functionCall args as object not list', function () {
+    createTestIntegration('gemini', [
+        'settings' => [
+            'default_model' => 'gemini-1.5-flash',
+            'is_default_provider' => true,
+        ],
+    ]);
+    createTestIntegration('openai', [
+        'settings' => [
+            'default_model' => 'gpt-4o-mini',
+            'is_default_provider' => false,
+        ],
+    ]);
+
+    $sequence = Http::sequence()
+        ->push([
+            'candidates' => [
+                [
+                    'content' => [
+                        'parts' => [
+                            [
+                                'functionCall' => [
+                                    'name' => 'inventory_summary',
+                                    'args' => new stdClass,
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ], 200)
+        ->push([
+            'candidates' => [
+                [
+                    'content' => [
+                        'parts' => [
+                            ['text' => 'Inventory looks healthy overall.'],
+                        ],
+                    ],
+                ],
+            ],
+        ], 200);
+
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => $sequence,
+    ]);
+
+    $this->actingAs(userWithRole('Admin'))
+        ->postJson(route('ai.assistance.ask'), [
+            'message' => 'Give me an inventory summary.',
+        ])
+        ->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('answer', 'Inventory looks healthy overall.');
+
+    $recorded = Http::recorded();
+
+    expect($recorded)->toHaveCount(2);
+
+    $secondPayload = $recorded[1][0]->data();
+    $functionCall = $secondPayload['contents'][1]['parts'][0]['functionCall'] ?? null;
+
+    expect($functionCall)->toBeArray()
+        ->and($functionCall['name'])->toBe('inventory_summary')
+        ->and($functionCall['args'])->toBeInstanceOf(stdClass::class);
+});
