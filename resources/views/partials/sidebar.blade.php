@@ -40,11 +40,14 @@
             <a href="{{ route('finance.index') }}" class="{{ $linkClass(request()->routeIs('finance.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Finance</a>
         @endcan
 
-        @canany(['view supplier orders', 'use ai assistant', 'view stock history', 'view low stock report', 'view out of stock report'])
+        @canany(['view supplier orders', 'use ai assistant', 'use ai assistance', 'view stock history', 'view low stock report', 'view out of stock report'])
             <p class="px-2.5 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-white/35">Tools</p>
         @endcanany
         @can('use ai assistant')
             <a href="{{ route('ai.order-assistant.index') }}" class="{{ $linkClass(request()->routeIs('ai.order-assistant.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">AI Order Assistant</a>
+        @endcan
+        @can('use ai assistance')
+            <a href="{{ route('ai.assistance.index') }}" class="{{ $linkClass(request()->routeIs('ai.assistance.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">AI Assistance</a>
         @endcan
         @can('view supplier orders')
             <a href="{{ route('supplier-orders.index') }}" class="{{ $linkClass(request()->routeIs('supplier-orders.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Supplier Orders</a>

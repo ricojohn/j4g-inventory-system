@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SizeController;
 use App\Http\Controllers\Admin\SupplierController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\AiAssistanceController;
 use App\Http\Controllers\AiOrderAssistantController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CustomerController;
@@ -395,6 +396,22 @@ Route::middleware('auth')->group(function () {
     Route::get('/ai/order-assistant', [AiOrderAssistantController::class, 'index'])
         ->middleware('permission:use ai assistant')
         ->name('ai.order-assistant.index');
+
+    Route::get('/ai/assistance', [AiAssistanceController::class, 'index'])
+        ->middleware('permission:use ai assistance')
+        ->name('ai.assistance.index');
+
+    Route::post('/ai/assistance/ask', [AiAssistanceController::class, 'ask'])
+        ->middleware('permission:use ai assistance')
+        ->name('ai.assistance.ask');
+
+    Route::post('/ai/assistance/export/csv', [AiAssistanceController::class, 'exportCsv'])
+        ->middleware('permission:use ai assistance')
+        ->name('ai.assistance.export.csv');
+
+    Route::post('/ai/assistance/export/pdf', [AiAssistanceController::class, 'exportPdf'])
+        ->middleware('permission:use ai assistance')
+        ->name('ai.assistance.export.pdf');
 
     Route::get('/reports/stock-history/filter-options', [ReportController::class, 'stockHistoryFilterOptions'])
         ->middleware('permission:view stock history')

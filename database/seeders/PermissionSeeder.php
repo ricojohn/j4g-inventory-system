@@ -45,6 +45,7 @@ class PermissionSeeder extends Seeder
             'cancel supplier orders',
             'manage integrations',
             'use ai assistant',
+            'use ai assistance',
             'view customers',
             'manage customers',
             'view finance',

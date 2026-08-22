@@ -15,7 +15,7 @@
     "name": "data-table"
   },
   "resources/css/app.css": {
-    "file": "assets/app-Po54yZot.css",
+    "file": "assets/app-DhvkiXE4.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -23,8 +23,14 @@
       "app.css"
     ]
   },
+  "resources/js/ai-assistance.js": {
+    "file": "assets/ai-assistance-DcSz2JbJ.js",
+    "name": "ai-assistance",
+    "src": "resources/js/ai-assistance.js",
+    "isEntry": true
+  },
   "resources/js/ai-assistant.js": {
-    "file": "assets/ai-assistant-DWiIPBqC.js",
+    "file": "assets/ai-assistant-CjixSqfX.js",
     "name": "ai-assistant",
     "src": "resources/js/ai-assistant.js",
     "isEntry": true,
