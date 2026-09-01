@@ -42,6 +42,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/conversations/{conversation}', [FacebookConversationController::class, 'show'])->name('show');
         Route::post('/conversations/{conversation}/take-over', [FacebookConversationController::class, 'takeOver'])->middleware('permission:take over messenger conversations')->name('take-over');
         Route::post('/conversations/{conversation}/return-to-ai', [FacebookConversationController::class, 'returnToAi'])->middleware('permission:take over messenger conversations')->name('return-to-ai');
+        Route::post('/conversations/{conversation}/reply', [FacebookConversationController::class, 'reply'])->middleware('permission:take over messenger conversations')->name('reply');
         Route::post('/conversations/{conversation}/prepare-summary', [FacebookConversationController::class, 'prepareSummary'])->middleware('permission:create messenger orders')->name('prepare-summary');
         Route::post('/conversations/{conversation}/confirm', [FacebookConversationController::class, 'confirm'])->middleware('permission:create messenger orders')->name('confirm');
         Route::post('/conversations/{conversation}/create-order', [FacebookConversationController::class, 'createOrder'])->middleware('permission:create messenger orders')->name('create-order');

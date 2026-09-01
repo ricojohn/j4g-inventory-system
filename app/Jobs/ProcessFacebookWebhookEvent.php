@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\FacebookConversation;
 use App\Models\FacebookMessage;
 use App\Models\FacebookWebhookEvent;
+use App\Services\Facebook\MessengerConversationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
@@ -24,13 +25,13 @@ class ProcessFacebookWebhookEvent implements ShouldQueue
         $this->afterCommit();
     }
 
-    public function handle(): void
+    public function handle(MessengerConversationService $conversationService): void
     {
-        DB::transaction(function (): void {
+        $processed = DB::transaction(function (): ?array {
             $event = FacebookWebhookEvent::query()->lockForUpdate()->findOrFail($this->eventId);
 
             if ($event->status === 'processed') {
-                return;
+                return null;
             }
 
             $event->increment('attempts');
@@ -38,7 +39,7 @@ class ProcessFacebookWebhookEvent implements ShouldQueue
             if (! in_array($event->event_type, ['message', 'postback'], true) || blank($event->sender_psid)) {
                 $event->update(['status' => 'processed', 'processed_at' => now()]);
 
-                return;
+                return null;
             }
 
             $conversation = FacebookConversation::query()->firstOrCreate(
@@ -50,7 +51,7 @@ class ProcessFacebookWebhookEvent implements ShouldQueue
             $messageId = data_get($payload, 'message.mid') ?? data_get($payload, 'postback.mid');
             $body = data_get($payload, 'message.text') ?? data_get($payload, 'postback.payload');
 
-            FacebookMessage::query()->firstOrCreate(
+            $message = FacebookMessage::query()->firstOrCreate(
                 ['facebook_webhook_event_id' => $event->id],
                 [
                     'branch_id' => $event->branch_id,
@@ -67,7 +68,16 @@ class ProcessFacebookWebhookEvent implements ShouldQueue
 
             $conversation->update(['last_inbound_at' => $event->meta_timestamp ?? now()]);
             $event->update(['status' => 'processed', 'processed_at' => now(), 'failed_at' => null, 'error_message' => null]);
+
+            return [$conversation->id, $message->id];
         });
+
+        if ($processed) {
+            $conversationService->handleInbound(
+                FacebookConversation::query()->with('page')->findOrFail($processed[0]),
+                FacebookMessage::query()->findOrFail($processed[1]),
+            );
+        }
     }
 
     public function failed(Throwable $exception): void

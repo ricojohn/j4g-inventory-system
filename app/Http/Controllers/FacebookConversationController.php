@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\FacebookConversation;
 use App\Services\Facebook\CreateMessengerOrderService;
+use App\Services\Facebook\MessengerConversationService;
 use App\Services\Facebook\MessengerOrderDraftService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,16 @@ class FacebookConversationController extends Controller
         $conversation->update(['control_mode' => 'ai', 'assigned_user_id' => null, 'returned_to_ai_at' => now(), 'version' => $conversation->version + 1]);
 
         return back()->with('success', 'Conversation returned to AI.');
+    }
+
+    public function reply(Request $request, FacebookConversation $conversation, MessengerConversationService $service): RedirectResponse
+    {
+        $this->assertBranch($request, $conversation);
+        abort_unless($conversation->control_mode === 'human', 422, 'Take over the conversation before sending a staff reply.');
+        $validated = $request->validate(['message' => ['required', 'string', 'max:2000']]);
+        $service->queueReply($conversation, $validated['message'], false);
+
+        return back()->with('success', 'Staff reply queued.');
     }
 
     public function prepareSummary(Request $request, FacebookConversation $conversation, MessengerOrderDraftService $service): RedirectResponse

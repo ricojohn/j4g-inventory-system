@@ -25,6 +25,15 @@
                     </div>
                 @empty <p class="text-sm text-gray-500">No messages.</p> @endforelse
             </div>
+            @if ($conversation->control_mode === 'human')
+                @can('take over messenger conversations')
+                    <form class="mt-4 space-y-2" method="POST" action="{{ route('messenger.reply', $conversation) }}">
+                        @csrf
+                        <x-ui.textarea name="message" rows="3" placeholder="Reply as staff" required />
+                        <x-ui.button type="submit">Send Reply</x-ui.button>
+                    </form>
+                @endcan
+            @endif
         </x-ui.page-card>
 
         <x-ui.page-card>

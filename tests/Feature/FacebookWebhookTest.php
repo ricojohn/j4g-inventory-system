@@ -49,7 +49,7 @@ test('queued processing creates one conversation and inbound message idempotentl
     signedFacebookPost($this, $body)->assertOk();
 
     $event = FacebookWebhookEvent::query()->firstOrFail();
-    (new ProcessFacebookWebhookEvent($event->id))->handle();
+    app()->call([new ProcessFacebookWebhookEvent($event->id), 'handle']);
 
     expect(FacebookConversation::query()->count())->toBe(1)
         ->and(FacebookMessage::query()->count())->toBe(1)
