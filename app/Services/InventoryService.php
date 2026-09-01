@@ -228,6 +228,7 @@ class InventoryService
 
             $movement = StockMovement::query()->create([
                 ...$movementData,
+                'branch_id' => $lockedCell->color->product->branch_id,
                 'product_color_size_id' => $lockedCell->id,
                 'remarks' => $remarks,
                 'created_by' => Auth::id(),
