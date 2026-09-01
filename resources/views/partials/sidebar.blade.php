@@ -85,6 +85,7 @@
         @endcan
         @can('manage integrations')
             <a href="{{ route('integrations.index') }}" class="{{ $linkClass(request()->routeIs('integrations.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Integrations</a>
+            <a href="{{ route('facebook-pages.index') }}" class="{{ $linkClass(request()->routeIs('facebook-pages.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Facebook Pages</a>
         @endcan
     </nav>
 </aside>

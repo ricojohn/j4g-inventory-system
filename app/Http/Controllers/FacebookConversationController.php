@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateMessengerOrderDraftRequest;
 use App\Models\FacebookConversation;
+use App\Models\ProductColorSize;
 use App\Services\Facebook\CreateMessengerOrderService;
 use App\Services\Facebook\MessengerConversationService;
 use App\Services\Facebook\MessengerOrderDraftService;
@@ -28,7 +30,10 @@ class FacebookConversationController extends Controller
         $this->assertBranch($request, $conversation);
         $conversation->load('page', 'assignedUser', 'messages', 'draft.items.cell.color.product', 'draft.items.cell.color.color', 'draft.items.cell.size.size');
 
-        return view('facebook-conversations.show', compact('conversation'));
+        $cells = ProductColorSize::query()->whereHas('color.product', fn ($query) => $query->where('branch_id', $conversation->branch_id)->where('status', 'active'))
+            ->with('color.product', 'color.color', 'size.size')->get()->sortBy(fn ($cell) => $cell->color->product->name.$cell->color->color->name.$cell->size->size->name);
+
+        return view('facebook-conversations.show', compact('conversation', 'cells'));
     }
 
     public function takeOver(Request $request, FacebookConversation $conversation): RedirectResponse
@@ -71,6 +76,28 @@ class FacebookConversationController extends Controller
         } catch (RuntimeException $exception) {
             return back()->with('error', $exception->getMessage());
         }
+    }
+
+    public function updateDraft(UpdateMessengerOrderDraftRequest $request, FacebookConversation $conversation, MessengerOrderDraftService $service): RedirectResponse
+    {
+        $this->assertBranch($request, $conversation);
+        $draft = $conversation->draft()->firstOrCreate(['branch_id' => $conversation->branch_id, 'psid' => $conversation->psid]);
+        $cellIds = collect($request->validated('items'))->pluck('product_color_size_id');
+        $validCellIds = ProductColorSize::query()->whereIn('id', $cellIds)
+            ->whereHas('color.product', fn ($query) => $query->where('branch_id', $conversation->branch_id)->where('status', 'active'))
+            ->pluck('id');
+        abort_unless($validCellIds->count() === $cellIds->unique()->count(), 422, 'Every item must belong to an active product in this branch.');
+
+        DB::transaction(function () use ($request, $draft, $service): void {
+            $service->invalidateSummary($draft);
+            $draft->refresh()->update($request->safe()->only(['customer_name', 'fulfillment_method', 'delivery_address', 'payment_method_preference']));
+            $draft->items()->delete();
+            foreach ($request->validated('items') as $item) {
+                $draft->items()->create($item);
+            }
+        });
+
+        return back()->with('success', 'Draft updated. Prepare a new final summary before confirmation.');
     }
 
     public function confirm(Request $request, FacebookConversation $conversation): RedirectResponse

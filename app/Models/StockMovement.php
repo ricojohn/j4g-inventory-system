@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Enums\MovementType;
+use App\Models\Concerns\BelongsToBranch;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StockMovement extends Model
 {
+    use BelongsToBranch;
+
     public $timestamps = false;
 
     protected $fillable = [

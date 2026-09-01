@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\SupplierOrderStatus;
+use App\Models\Concerns\BelongsToBranch;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class SupplierOrder extends Model
 {
-    use HasFactory;
+    use BelongsToBranch, HasFactory;
 
     protected $fillable = [
         'po_number',

@@ -7,6 +7,7 @@ use App\Enums\CustomerSource;
 use App\Enums\OrderLayoutStatus;
 use App\Enums\OrderPaymentStatus;
 use App\Enums\ProductionStage;
+use App\Models\Concerns\BelongsToBranch;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\Storage;
 
 class CustomerOrder extends Model
 {
-    use HasFactory;
+    use BelongsToBranch, HasFactory;
 
     protected $fillable = [
         'order_number',
