@@ -19,6 +19,7 @@ class SupplierOrder extends Model
         'remarks',
         'status',
         'created_by',
+        'branch_id',
     ];
 
     protected function casts(): array

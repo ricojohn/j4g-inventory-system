@@ -26,6 +26,7 @@ class AiOrderDraft extends Model
         'image_path',
         'customer_order_id',
         'created_by',
+        'branch_id',
     ];
 
     protected function casts(): array

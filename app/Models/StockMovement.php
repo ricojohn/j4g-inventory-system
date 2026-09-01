@@ -21,6 +21,7 @@ class StockMovement extends Model
         'remarks',
         'created_by',
         'created_at',
+        'branch_id',
     ];
 
     protected function casts(): array

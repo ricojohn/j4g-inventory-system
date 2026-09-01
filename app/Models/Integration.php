@@ -15,6 +15,7 @@ class Integration extends Model
         'settings',
         'connected_at',
         'created_by',
+        'branch_id',
     ];
 
     protected function casts(): array

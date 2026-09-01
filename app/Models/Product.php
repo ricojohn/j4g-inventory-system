@@ -17,6 +17,7 @@ class Product extends Model
         'code',
         'description',
         'status',
+        'branch_id',
     ];
 
     protected static function booted(): void

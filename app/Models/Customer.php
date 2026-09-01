@@ -17,6 +17,7 @@ class Customer extends Model
         'contact',
         'notes',
         'source',
+        'branch_id',
     ];
 
     protected function casts(): array
