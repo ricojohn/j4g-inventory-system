@@ -14,6 +14,7 @@
             <x-ui.input name="graph_api_version" value="{{ config('services.facebook.graph_api_version') }}" required />
             <x-ui.select name="status"><option value="active">Active</option><option value="inactive">Inactive</option></x-ui.select>
             <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="ai_enabled" value="1"> Enable AI replies</label>
+            <x-ui.select name="automation_user_id"><option value="">Select automation user</option>@foreach ($users as $user)<option value="{{ $user->id }}">{{ $user->name }}</option>@endforeach</x-ui.select>
             <div><x-ui.button type="submit">Save Page</x-ui.button></div>
         </form>
     </x-ui.page-card>
@@ -26,6 +27,7 @@
                 <x-ui.input name="graph_api_version" value="{{ $page->graph_api_version }}" required />
                 <x-ui.select name="status"><option value="active" @selected($page->status === 'active')>Active</option><option value="inactive" @selected($page->status === 'inactive')>Inactive</option></x-ui.select>
                 <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="ai_enabled" value="1" @checked($page->ai_enabled)> Enable AI replies</label>
+                <x-ui.select name="automation_user_id"><option value="">Keep current automation user</option>@foreach ($users as $user)<option value="{{ $user->id }}" @selected($page->branch->automation_user_id === $user->id)>{{ $user->name }}</option>@endforeach</x-ui.select>
                 <div><x-ui.button type="submit">Update Page</x-ui.button></div>
             </form>
         </x-ui.page-card>

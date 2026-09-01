@@ -74,7 +74,7 @@ class ProcessFacebookWebhookEvent implements ShouldQueue
 
         if ($processed) {
             $conversationService->handleInbound(
-                FacebookConversation::query()->with('page')->findOrFail($processed[0]),
+                FacebookConversation::query()->with('page.branch.automationUser')->findOrFail($processed[0]),
                 FacebookMessage::query()->findOrFail($processed[1]),
             );
         }

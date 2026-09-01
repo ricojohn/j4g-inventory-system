@@ -18,6 +18,7 @@ class MessengerConversationService
         private AiProviderManager $aiProviderManager,
         private AiOrderDraftService $aiOrderDraftService,
         private MessengerOrderDraftService $draftService,
+        private CreateMessengerOrderService $createOrderService,
     ) {}
 
     public function handleInbound(FacebookConversation $conversation, FacebookMessage $message): void
@@ -35,7 +36,19 @@ class MessengerConversationService
         if ($this->isExplicitConfirmation((string) $message->body) && $draft->status === 'awaiting_confirmation') {
             if ($draft->confirmation_expires_at?->isFuture()) {
                 $draft->update(['status' => 'confirmed', 'confirmed_at' => now(), 'confirmation_actor_type' => 'customer', 'confirmation_message_id' => $message->id]);
-                $this->queueReply($conversation, 'Thank you. Your final summary is confirmed. A staff member can now use Create Order.');
+                $automationUser = $conversation->page->branch->automationUser;
+                if (! $automationUser) {
+                    $this->queueReply($conversation, 'Thank you. Your final summary is confirmed. A staff member will complete Create Order.');
+
+                    return;
+                }
+
+                try {
+                    $order = $this->createOrderService->execute($draft->fresh(), $automationUser);
+                    $this->queueReply($conversation, "Create Order completed. Your order number is {$order->order_number}.");
+                } catch (Throwable $exception) {
+                    $this->queueReply($conversation, 'Your confirmation was received, but Create Order could not complete: '.$exception->getMessage());
+                }
             } else {
                 $this->queueReply($conversation, 'That summary expired. We need to review availability and send a new final summary.');
             }

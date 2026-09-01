@@ -24,6 +24,7 @@ beforeEach(function () {
 test('customer confirm explicitly confirms only the current final summary', function () {
     [$draft] = messagingServiceDraftFixture();
     $draft->conversation->page->update(['ai_enabled' => true]);
+    $draft->conversation->page->branch->update(['automation_user_id' => userWithRole('Staff')->id]);
     $draft = app(MessengerOrderDraftService::class)->prepareSummary($draft);
     $inbound = $draft->conversation->messages()->create([
         'branch_id' => $draft->branch_id,
@@ -35,10 +36,11 @@ test('customer confirm explicitly confirms only the current final summary', func
 
     app(MessengerConversationService::class)->handleInbound($draft->conversation->fresh('page'), $inbound);
 
-    expect($draft->fresh()->status)->toBe('confirmed')
+    expect($draft->fresh()->status)->toBe('converted')
         ->and($draft->fresh()->confirmation_actor_type)->toBe('customer')
         ->and($draft->fresh()->confirmation_message_id)->toBe($inbound->id)
-        ->and($draft->conversation->messages()->where('direction', 'outbound')->first()->body)->toContain('Create Order');
+        ->and($draft->fresh()->customer_order_id)->not->toBeNull()
+        ->and($draft->conversation->messages()->where('direction', 'outbound')->first()->body)->toContain('Create Order completed');
 });
 
 test('send job suppresses an ai reply after human takeover', function () {

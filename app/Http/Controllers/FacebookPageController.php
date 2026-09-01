@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\FacebookPage;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -14,7 +15,9 @@ class FacebookPageController extends Controller
     {
         $pages = FacebookPage::query()->where('branch_id', $request->user()->branch_id)->orderBy('name')->get();
 
-        return view('facebook-pages.index', compact('pages'));
+        $users = User::query()->where('branch_id', $request->user()->branch_id)->where('status', 'active')->orderBy('name')->get();
+
+        return view('facebook-pages.index', compact('pages', 'users'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -22,6 +25,9 @@ class FacebookPageController extends Controller
         $data = $this->validated($request);
         $data['ai_enabled'] = $request->boolean('ai_enabled');
         FacebookPage::query()->create([...$data, 'branch_id' => $request->user()->branch_id]);
+        if ($request->filled('automation_user_id')) {
+            $request->user()->branch()->update(['automation_user_id' => $request->integer('automation_user_id')]);
+        }
 
         return back()->with('success', 'Facebook Page configured.');
     }
@@ -35,6 +41,9 @@ class FacebookPageController extends Controller
             unset($data['access_token']);
         }
         $page->update($data);
+        if ($request->filled('automation_user_id')) {
+            $request->user()->branch()->update(['automation_user_id' => $request->integer('automation_user_id')]);
+        }
 
         return back()->with('success', 'Facebook Page updated.');
     }
@@ -49,6 +58,7 @@ class FacebookPageController extends Controller
             'graph_api_version' => ['required', 'regex:/^v\d+\.\d+$/', 'max:20'],
             'status' => ['required', Rule::in(['active', 'inactive'])],
             'ai_enabled' => ['sometimes', 'boolean'],
+            'automation_user_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('branch_id', $request->user()->branch_id)],
         ]);
     }
 }
