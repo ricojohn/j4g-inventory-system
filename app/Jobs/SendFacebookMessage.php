@@ -46,7 +46,7 @@ class SendFacebookMessage implements ShouldQueue
             if (! $conversation) {
                 return;
             }
-            $conversation->loadCount(['messages as unread_message_count' => fn ($query) => $query->where('direction', 'inbound')->whereNull('read_at')]);
+            $conversation->loadCount(['messages as unread_message_count' => fn ($query) => $query->where('direction', 'inbound')]);
             broadcast(new MessengerConversationUpdated([
                 'conversation' => [
                     'id' => $conversation->id,

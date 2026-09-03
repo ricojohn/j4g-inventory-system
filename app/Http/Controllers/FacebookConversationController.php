@@ -155,7 +155,7 @@ class FacebookConversationController extends Controller
 
         $conversations = FacebookConversation::query()
             ->with('page', 'assignedUser', 'draft')
-            ->withCount(['messages as unread_message_count' => fn (Builder $query) => $query->where('direction', 'inbound')->whereNull('read_at')])
+            ->withCount(['messages as unread_message_count' => fn (Builder $query) => $query->where('direction', 'inbound')])
             ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
             ->orderByDesc('last_inbound_at')
             ->orderByDesc('updated_at')
@@ -268,7 +268,7 @@ class FacebookConversationController extends Controller
         }
 
         $conversation->loadMissing('page', 'assignedUser', 'draft');
-        $conversation->loadCount(['messages as unread_message_count' => fn ($query) => $query->where('direction', 'inbound')->whereNull('read_at')]);
+        $conversation->loadCount(['messages as unread_message_count' => fn ($query) => $query->where('direction', 'inbound')]);
 
         broadcast(new MessengerConversationUpdated([
             'conversation' => [
