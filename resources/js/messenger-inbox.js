@@ -64,10 +64,10 @@ function updateInboxFromSnapshot(snapshot) {
         return;
     }
 
-    updateText('[data-conversation-customer-name]', selected.draft?.customer_name || selected.psid);
+    updateText('[data-conversation-customer-name]', selected.customer_name || selected.draft?.customer_name || selected.psid);
     updateText('[data-conversation-page-name]', selected.page_name);
     updateText('[data-conversation-psid]', selected.psid);
-    updateText('[data-sidebar-customer-name]', selected.draft?.customer_name || 'Contact details');
+    updateText('[data-sidebar-customer-name]', selected.customer_name || selected.draft?.customer_name || 'Contact details');
     updateText('[data-sidebar-psid]', selected.psid);
     updateText('[data-draft-status]', selected.draft?.status ? selected.draft.status.replace(/_/g, ' ') : 'N/A');
     updateText('[data-draft-fulfillment]', selected.draft?.fulfillment_method ? selected.draft.fulfillment_method : 'n/a');
@@ -100,6 +100,7 @@ function updateInboxFromSnapshot(snapshot) {
     const messageList = document.querySelector('[data-message-list]');
     if (messageList) {
         messageList.innerHTML = (selected.messages || []).map(renderMessage).join('');
+        messageList.scrollTop = messageList.scrollHeight;
     }
 
     const version = document.querySelector('[data-conversation-version]');

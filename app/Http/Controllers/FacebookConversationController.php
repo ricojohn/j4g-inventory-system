@@ -249,7 +249,7 @@ class FacebookConversationController extends Controller
         $branchId = $request->user()->branch_id;
 
         $conversations = FacebookConversation::query()
-            ->with('page', 'assignedUser', 'draft', 'tags')
+            ->with('page', 'assignedUser', 'draft', 'tags', 'customer')
             ->withCount(['messages as unread_message_count' => fn (Builder $query) => $query->where('direction', 'inbound')->whereRaw('facebook_messages.created_at > COALESCE(facebook_conversations.last_read_at, "1970-01-01 00:00:00")')])
             ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
             ->orderByDesc('last_inbound_at')
@@ -257,14 +257,14 @@ class FacebookConversationController extends Controller
             ->paginate(30);
 
         $selectedConversation ??= $conversations->getCollection()->first() ?? FacebookConversation::query()
-            ->with('page', 'assignedUser', 'messages', 'draft.items.cell.color.product', 'draft.items.cell.color.color', 'draft.items.cell.size.size', 'tags')
+            ->with('page', 'assignedUser', 'messages', 'draft.items.cell.color.product', 'draft.items.cell.color.color', 'draft.items.cell.size.size', 'tags', 'customer')
             ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
             ->orderByDesc('last_inbound_at')
             ->orderByDesc('updated_at')
             ->first();
 
         if ($selectedConversation) {
-            $selectedConversation->load('page', 'assignedUser', 'messages', 'draft.items.cell.color.product', 'draft.items.cell.color.color', 'draft.items.cell.size.size', 'tags');
+            $selectedConversation->load('page', 'assignedUser', 'messages', 'draft.items.cell.color.product', 'draft.items.cell.color.color', 'draft.items.cell.size.size', 'tags', 'customer');
         }
 
         $cells = ProductColorSize::query()
@@ -279,11 +279,12 @@ class FacebookConversationController extends Controller
 
     private function conversationSummary(FacebookConversation $conversation): array
     {
-        $conversation->loadMissing('page', 'draft', 'tags');
+        $conversation->loadMissing('page', 'draft', 'tags', 'customer');
 
         return [
             'id' => $conversation->id,
             'psid' => $conversation->psid,
+            'customer_name' => $conversation->customer?->name,
             'page_name' => $conversation->page->name,
             'control_mode' => $conversation->control_mode,
             'state' => $conversation->state,
@@ -298,11 +299,12 @@ class FacebookConversationController extends Controller
 
     private function conversationDetail(FacebookConversation $conversation): array
     {
-        $conversation->loadMissing('page', 'assignedUser', 'messages', 'draft.items.cell.color.product', 'draft.items.cell.color.color', 'draft.items.cell.size.size', 'tags');
+        $conversation->loadMissing('page', 'assignedUser', 'messages', 'draft.items.cell.color.product', 'draft.items.cell.color.color', 'draft.items.cell.size.size', 'tags', 'customer');
 
         return [
             'id' => $conversation->id,
             'psid' => $conversation->psid,
+            'customer_name' => $conversation->customer?->name,
             'page_name' => $conversation->page->name,
             'control_mode' => $conversation->control_mode,
             'state' => $conversation->state,
@@ -362,7 +364,7 @@ class FacebookConversationController extends Controller
             return;
         }
 
-        $conversation->loadMissing('page', 'assignedUser', 'draft', 'tags');
+        $conversation->loadMissing('page', 'assignedUser', 'draft', 'tags', 'customer');
         $conversation->loadCount(['messages as unread_message_count' => fn ($query) => $query->where('direction', 'inbound')]);
 
         broadcast(new MessengerConversationUpdated([
@@ -370,6 +372,7 @@ class FacebookConversationController extends Controller
                 'id' => $conversation->id,
                 'branch_id' => $conversation->branch_id,
                 'psid' => $conversation->psid,
+                'customer_name' => $conversation->customer?->name,
                 'page_name' => $conversation->page->name,
                 'control_mode' => $conversation->control_mode,
                 'state' => $conversation->state,

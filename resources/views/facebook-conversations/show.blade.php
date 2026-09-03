@@ -91,16 +91,16 @@
                 </div>
             </aside>
 
-            <section class="flex min-w-0 flex-col border-b border-gray-200 lg:border-b-0 lg:border-r lg:min-h-[calc(100vh-14rem)]">
+            <section class="flex min-h-0 min-w-0 flex-col border-b border-gray-200 lg:border-b-0 lg:border-r lg:min-h-[calc(100vh-14rem)]">
                 @if ($selectedConversation)
                     <div class="shrink-0 border-b border-gray-200 px-4 py-4" data-conversation-version="{{ $selectedConversation->updated_at?->toIso8601String() }}">
                         <div class="flex items-center justify-between gap-4">
                         <div class="flex items-center gap-3">
                             <div class="flex h-12 w-12 items-center justify-center rounded-full bg-brand-soft text-base font-semibold text-brand">
-                                {{ strtoupper(substr($selectedConversation->draft?->customer_name ?? $selectedConversation->psid, 0, 1)) }}
+                                {{ strtoupper(substr($selectedConversation->customer?->name ?? $selectedConversation->draft?->customer_name ?? $selectedConversation->psid, 0, 1)) }}
                             </div>
                             <div>
-                                <h2 class="text-[15px] font-semibold text-gray-900" data-conversation-customer-name>{{ $selectedConversation->draft?->customer_name ?? $selectedConversation->psid }}</h2>
+                                <h2 class="text-[15px] font-semibold text-gray-900" data-conversation-customer-name>{{ $selectedConversation->customer?->name ?? $selectedConversation->draft?->customer_name ?? $selectedConversation->psid }}</h2>
                                 <p class="text-[12px] text-gray-500"><span data-conversation-page-name>{{ $selectedConversation->page->name }}</span> · <span data-conversation-psid>{{ $selectedConversation->psid }}</span></p>
                             </div>
                         </div>
@@ -126,7 +126,7 @@
                                         <p class="mb-1 text-[11px] font-medium {{ $message->direction === 'inbound' ? 'text-gray-500' : 'text-brand-soft' }}">
                                             {{ ucfirst($message->sender_type) }} · {{ $message->created_at?->timezone(config('app.timezone'))->format('g:i A') }}
                                         </p>
-                                        <p class="whitespace-pre-wrap">{{ $message->body ?: '['.$message->message_type.']' }}</p>
+                                        <p class="whitespace-pre-wrap">{{ filled($message->body) ? $message->body : '['.$message->message_type.']' }}</p>
                                     </div>
                                 </div>
                             @empty
@@ -166,7 +166,7 @@
                     <div class="border-b border-gray-200 p-4">
                         <div class="flex items-start justify-between gap-3">
                             <div>
-                                <h3 class="text-[15px] font-semibold text-gray-900" data-sidebar-customer-name>{{ $selectedConversation->draft?->customer_name ?? 'Contact details' }}</h3>
+                                <h3 class="text-[15px] font-semibold text-gray-900" data-sidebar-customer-name>{{ $selectedConversation->customer?->name ?? $selectedConversation->draft?->customer_name ?? 'Contact details' }}</h3>
                                 <p class="mt-1 text-[12px] text-gray-500" data-sidebar-psid>{{ $selectedConversation->psid }}</p>
                             </div>
                             <span class="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-gray-600">{{ ucfirst($selectedConversation->control_mode) }}</span>
