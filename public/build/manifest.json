@@ -15,7 +15,7 @@
     "name": "data-table"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CSC9Ub7K.css",
+    "file": "assets/app-DIfgGW6e.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -40,7 +40,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-szOXr-4W.js",
+    "file": "assets/app-DDH3h1j6.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
