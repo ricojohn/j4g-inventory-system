@@ -117,16 +117,25 @@ test('manual sync ingests the latest Meta messages without duplicating rows', fu
         ->twice()
         ->withArgs(fn ($calledPage, $conversationId) => $calledPage->is($page) && $conversationId === 'conv-1')
         ->andReturn([
-            'data' => [
-                [
-                    'id' => 'mid.sync.1',
-                    'created_time' => now()->toIso8601String(),
-                    'from' => ['id' => 'psid-sync-1'],
-                    'to' => ['data' => [['id' => $page->page_id]]],
-                    'message' => ['text' => 'Hello from Meta'],
+            'messages' => [
+                'data' => [
+                    [
+                        'id' => 'mid.sync.1',
+                        'created_time' => now()->toIso8601String(),
+                    ],
                 ],
             ],
             'paging' => ['cursors' => ['after' => null]],
+        ]);
+    $client->shouldReceive('getMessage')
+        ->twice()
+        ->withArgs(fn ($calledPage, $messageId) => $calledPage->is($page) && $messageId === 'mid.sync.1')
+        ->andReturn([
+            'id' => 'mid.sync.1',
+            'created_time' => now()->toIso8601String(),
+            'from' => ['id' => 'psid-sync-1'],
+            'to' => ['data' => [['id' => $page->page_id]]],
+            'message' => 'Hello from Meta',
         ]);
     app()->instance(FacebookGraphClient::class, $client);
 

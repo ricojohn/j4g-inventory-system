@@ -50,14 +50,20 @@ class MessengerSyncService
 
         do {
             $payload = $this->client->listConversationMessages($page, $conversationId, 50, $messageCursor);
-            $rows = collect($payload['data'] ?? [])->reverse();
+            $rows = collect(data_get($payload, 'messages.data', data_get($payload, 'data', [])))->reverse();
 
             foreach ($rows as $remoteMessage) {
                 if (! is_array($remoteMessage)) {
                     continue;
                 }
 
-                $messageCounted = $this->syncMessage($page, $conversation, $remoteMessage, $conversationId);
+                $messageId = (string) data_get($remoteMessage, 'id');
+                if (blank($messageId)) {
+                    continue;
+                }
+
+                $messagePayload = $this->client->getMessage($page, $messageId);
+                $messageCounted = $this->syncMessage($page, $conversation, $messagePayload, $conversationId);
                 $messagesSynced += $messageCounted['messages'];
                 $conversation ??= $messageCounted['conversation'];
             }
@@ -102,7 +108,10 @@ class MessengerSyncService
         $createdAt = filled(data_get($remoteMessage, 'created_time'))
             ? CarbonImmutable::parse((string) data_get($remoteMessage, 'created_time'))
             : now();
-        $body = data_get($remoteMessage, 'message.text') ?? data_get($remoteMessage, 'postback.payload') ?? null;
+        $body = data_get($remoteMessage, 'message')
+            ?? data_get($remoteMessage, 'story')
+            ?? data_get($remoteMessage, 'postback.payload')
+            ?? null;
         $attachments = data_get($remoteMessage, 'attachments');
 
         $message = FacebookMessage::query()->firstOrCreate(

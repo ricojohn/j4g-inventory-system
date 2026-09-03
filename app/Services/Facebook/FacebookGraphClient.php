@@ -33,10 +33,24 @@ class FacebookGraphClient
     {
         $response = $this->request($page)
             ->get(sprintf('https://graph.facebook.com/%s/%s/messages', $page->graph_api_version, $conversationId), array_filter([
-                'fields' => 'id,created_time,from,to,message,attachments,is_unsupported',
                 'limit' => $limit,
                 'after' => $after,
             ], static fn ($value) => filled($value)));
+
+        if ($response->failed()) {
+            throw new RequestException($response);
+        }
+
+        return $response->json();
+    }
+
+    /** @return array<string, mixed> */
+    public function getMessage(FacebookPage $page, string $messageId): array
+    {
+        $response = $this->request($page)
+            ->get(sprintf('https://graph.facebook.com/%s/%s', $page->graph_api_version, $messageId), [
+                'fields' => 'id,created_time,from,to,message,attachments,is_unsupported,story',
+            ]);
 
         if ($response->failed()) {
             throw new RequestException($response);
