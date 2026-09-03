@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -28,5 +29,14 @@ class FacebookPage extends Model
     public function webhookEvents(): HasMany
     {
         return $this->hasMany(FacebookWebhookEvent::class);
+    }
+
+    public function hasUsableAccessToken(): bool
+    {
+        try {
+            return filled($this->access_token);
+        } catch (DecryptException) {
+            return false;
+        }
     }
 }

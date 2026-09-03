@@ -7,6 +7,7 @@ use App\Models\MessengerOrderDraft;
 use App\Models\Product;
 use App\Services\Facebook\MessengerOrderDraftService;
 use Database\Seeders\UserSeeder;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     seedBaseData();
@@ -60,6 +61,32 @@ test('saving a draft invalidates an earlier confirmation summary', function () {
         ->and($draft->fresh()->summary_hash)->toBeNull()
         ->and($draft->fresh()->confirmed_at)->toBeNull()
         ->and($draft->fresh()->version)->toBe(2);
+});
+
+test('page token encrypted under another app key does not crash configuration and can be replaced', function () {
+    $admin = userWithRole('Admin');
+    $page = FacebookPage::query()->create([
+        'branch_id' => $admin->branch_id,
+        'page_id' => 'old-key-page',
+        'name' => 'Old Key Page',
+        'status' => 'active',
+        'access_token' => 'original-token',
+    ]);
+    DB::table('facebook_pages')->where('id', $page->id)->update(['access_token' => 'invalid-encrypted-payload']);
+
+    $this->actingAs($admin)->get(route('facebook-pages.index'))
+        ->assertOk()
+        ->assertSee('encrypted with a different APP_KEY');
+
+    $this->put(route('facebook-pages.update', $page), [
+        'page_id' => $page->page_id,
+        'name' => $page->name,
+        'access_token' => 'replacement-token',
+        'graph_api_version' => 'v23.0',
+        'status' => 'active',
+    ])->assertRedirect();
+
+    expect($page->fresh()->access_token)->toBe('replacement-token');
 });
 
 function operationsDraftFixture(): array

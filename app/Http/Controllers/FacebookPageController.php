@@ -6,6 +6,8 @@ use App\Models\FacebookPage;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -37,9 +39,13 @@ class FacebookPageController extends Controller
         abort_unless($page->branch_id === $request->user()->branch_id, 404);
         $data = $this->validated($request, $page);
         $data['ai_enabled'] = $request->boolean('ai_enabled');
-        if (blank($data['access_token'] ?? null)) {
-            unset($data['access_token']);
+        if (filled($data['access_token'] ?? null)) {
+            DB::table('facebook_pages')->where('id', $page->id)->update([
+                'access_token' => Crypt::encryptString($data['access_token']),
+            ]);
+            $page->refresh();
         }
+        unset($data['access_token']);
         $page->update($data);
         if ($request->filled('automation_user_id')) {
             $request->user()->branch()->update(['automation_user_id' => $request->integer('automation_user_id')]);

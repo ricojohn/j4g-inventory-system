@@ -6,6 +6,7 @@ use App\Exceptions\IntegrationException;
 use App\Http\Requests\UpdateIntegrationRequest;
 use App\Models\Integration;
 use App\Services\Ai\AiProviderManager;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -45,7 +46,11 @@ class IntegrationController extends Controller
             ], 404);
         }
 
-        $credentials = $integration->credentials ?? [];
+        try {
+            $credentials = $integration->credentials ?? [];
+        } catch (DecryptException) {
+            $credentials = [];
+        }
 
         if ($request->filled('api_key')) {
             $credentials['api_key'] = $request->string('api_key')->toString();

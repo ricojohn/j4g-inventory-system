@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToBranch;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -37,8 +38,12 @@ class Integration extends Model
 
     public function isConnected(): bool
     {
-        return $this->status === 'active'
-            && filled($this->credentials['api_key'] ?? null);
+        try {
+            return $this->status === 'active'
+                && filled($this->credentials['api_key'] ?? null);
+        } catch (DecryptException) {
+            return false;
+        }
     }
 
     public function defaultModel(): string
@@ -57,7 +62,11 @@ class Integration extends Model
 
     public function apiKey(): ?string
     {
-        return $this->credentials['api_key'] ?? null;
+        try {
+            return $this->credentials['api_key'] ?? null;
+        } catch (DecryptException) {
+            return null;
+        }
     }
 
     public function scopeProvider($query, string $provider)

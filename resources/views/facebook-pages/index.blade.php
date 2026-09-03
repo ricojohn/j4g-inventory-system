@@ -20,6 +20,9 @@
     </x-ui.page-card>
     @foreach ($pages as $page)
         <x-ui.page-card>
+            @unless ($page->hasUsableAccessToken())
+                <div class="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">The saved Page token is missing or was encrypted with a different APP_KEY. Enter the token again.</div>
+            @endunless
             <form method="POST" action="{{ route('facebook-pages.update', $page) }}" class="grid gap-3 md:grid-cols-2">@csrf @method('PUT')
                 <x-ui.input name="page_id" value="{{ $page->page_id }}" required />
                 <x-ui.input name="name" value="{{ $page->name }}" required />
