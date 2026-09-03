@@ -18,7 +18,7 @@ return new class extends Migration
             $table->unsignedInteger('sort_order')->default(0);
             $table->timestamps();
 
-            $table->index(['branch_id', 'category', 'is_active']);
+            $table->index(['branch_id', 'category', 'is_active'], 'kb_branch_cat_active_idx');
         });
     }
 
