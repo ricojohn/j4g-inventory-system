@@ -20,7 +20,7 @@
     @endcan
 
     <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div class="grid min-h-[calc(100vh-14rem)] grid-cols-1 lg:grid-cols-[21rem_minmax(0,1fr)_19rem]">
+        <div class="grid min-h-[calc(100vh-14rem)] grid-cols-1 lg:grid-cols-[21rem_minmax(0,1fr)_19rem] lg:items-stretch">
             <aside class="border-b border-gray-200 bg-gray-50/80 lg:border-b-0 lg:border-r">
                 <div class="border-b border-gray-200 p-4">
                     <div class="flex items-center gap-2">
@@ -91,9 +91,10 @@
                 </div>
             </aside>
 
-            <section class="flex min-w-0 flex-col border-b border-gray-200 lg:border-b-0 lg:border-r">
+            <section class="flex min-w-0 flex-col border-b border-gray-200 lg:border-b-0 lg:border-r lg:min-h-[calc(100vh-14rem)]">
                 @if ($selectedConversation)
-                    <div class="flex items-center justify-between border-b border-gray-200 px-4 py-4" data-conversation-version="{{ $selectedConversation->updated_at?->toIso8601String() }}">
+                    <div class="shrink-0 border-b border-gray-200 px-4 py-4" data-conversation-version="{{ $selectedConversation->updated_at?->toIso8601String() }}">
+                        <div class="flex items-center justify-between gap-4">
                         <div class="flex items-center gap-3">
                             <div class="flex h-12 w-12 items-center justify-center rounded-full bg-brand-soft text-base font-semibold text-brand">
                                 {{ strtoupper(substr($selectedConversation->draft?->customer_name ?? $selectedConversation->psid, 0, 1)) }}
@@ -114,9 +115,10 @@
                                 @endcan
                             @endif
                         </div>
+                        </div>
                     </div>
 
-                    <div class="flex-1 overflow-y-auto bg-white px-4 py-5">
+                    <div class="min-h-0 flex-1 overflow-y-auto bg-white px-4 py-5">
                         <div class="mx-auto flex max-w-4xl flex-col gap-3" data-message-list>
                             @forelse ($selectedConversation->messages as $message)
                                 <div class="flex {{ $message->direction === 'inbound' ? 'justify-start' : 'justify-end' }}" data-message-item data-message-id="{{ $message->id }}">
@@ -135,7 +137,7 @@
                         </div>
                     </div>
 
-                    <div class="border-t border-gray-200 bg-white p-4">
+                    <div class="shrink-0 border-t border-gray-200 bg-white p-4">
                         @if ($selectedConversation->control_mode === 'human')
                             @can('take over messenger conversations')
                                 <form method="POST" action="{{ route('messenger.reply', $selectedConversation) }}" class="space-y-3">
@@ -153,7 +155,7 @@
                         @endif
                     </div>
                 @else
-                    <div class="flex flex-1 items-center justify-center p-10 text-sm text-gray-500">
+                    <div class="flex min-h-0 flex-1 items-center justify-center p-10 text-sm text-gray-500">
                         Select a conversation to view the thread.
                     </div>
                 @endif

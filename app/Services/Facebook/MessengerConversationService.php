@@ -10,6 +10,7 @@ use App\Models\MessengerOrderDraft;
 use App\Models\ProductColorSize;
 use App\Services\Ai\AiProviderManager;
 use App\Services\AiOrderDraftService;
+use App\Services\Facebook\BusinessKnowledgeBaseService;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -20,12 +21,19 @@ class MessengerConversationService
         private AiOrderDraftService $aiOrderDraftService,
         private MessengerOrderDraftService $draftService,
         private CreateMessengerOrderService $createOrderService,
+        private BusinessKnowledgeBaseService $knowledgeBaseService,
     ) {}
 
     public function handleInbound(FacebookConversation $conversation, FacebookMessage $message): void
     {
         $conversation->refresh();
         if ($conversation->control_mode !== 'ai' || ! $conversation->page->ai_enabled || blank($message->body)) {
+            return;
+        }
+
+        if ($answer = $this->knowledgeBaseService->buildAnswer($conversation->page, (string) $message->body)) {
+            $this->queueReply($conversation, $answer);
+            $this->broadcastConversationUpdated($conversation->fresh());
             return;
         }
 

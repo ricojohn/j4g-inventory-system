@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AiAssistanceController;
 use App\Http\Controllers\AiOrderAssistantController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BusinessKnowledgeBaseController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerOrderController;
 use App\Http\Controllers\DashboardController;
@@ -42,6 +43,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [FacebookPageController::class, 'index'])->name('index');
         Route::post('/', [FacebookPageController::class, 'store'])->name('store');
         Route::put('/{page}', [FacebookPageController::class, 'update'])->name('update');
+    });
+
+    Route::middleware('permission:manage integrations')->prefix('business-knowledge-base')->name('business-knowledge-base.')->group(function () {
+        Route::get('/', [BusinessKnowledgeBaseController::class, 'index'])->name('index');
+        Route::post('/', [BusinessKnowledgeBaseController::class, 'store'])->name('store');
+        Route::put('/{entry}', [BusinessKnowledgeBaseController::class, 'update'])->name('update');
+        Route::delete('/{entry}', [BusinessKnowledgeBaseController::class, 'destroy'])->name('destroy');
     });
 
     Route::middleware('permission:view messenger conversations')->prefix('messenger')->name('messenger.')->group(function () {
