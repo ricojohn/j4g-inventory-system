@@ -91,7 +91,7 @@
                 </div>
             </aside>
 
-            <section class="flex min-h-0 min-w-0 flex-col border-b border-gray-200 lg:border-b-0 lg:border-r lg:min-h-[calc(100vh-14rem)]">
+            <section class="flex min-h-0 min-w-0 flex-col overflow-hidden border-b border-gray-200 lg:border-b-0 lg:border-r lg:min-h-[calc(100vh-14rem)]">
                 @if ($selectedConversation)
                     <div class="shrink-0 border-b border-gray-200 px-4 py-4" data-conversation-version="{{ $selectedConversation->updated_at?->toIso8601String() }}">
                         <div class="flex items-center justify-between gap-4">
@@ -118,7 +118,7 @@
                         </div>
                     </div>
 
-                    <div class="min-h-0 flex-1 overflow-y-auto bg-white px-4 py-5">
+                    <div class="min-h-0 flex-1 overflow-y-auto bg-white px-4 py-5" data-message-scroll>
                         <div class="mx-auto flex max-w-4xl flex-col gap-3" data-message-list>
                             @forelse ($selectedConversation->messages as $message)
                                 <div class="flex {{ $message->direction === 'inbound' ? 'justify-start' : 'justify-end' }}" data-message-item data-message-id="{{ $message->id }}">

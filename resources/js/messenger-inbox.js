@@ -103,6 +103,11 @@ function updateInboxFromSnapshot(snapshot) {
         messageList.scrollTop = messageList.scrollHeight;
     }
 
+    const messageScroll = document.querySelector('[data-message-scroll]');
+    if (messageScroll) {
+        messageScroll.scrollTop = messageScroll.scrollHeight;
+    }
+
     const version = document.querySelector('[data-conversation-version]');
     if (version && selected.updated_at) {
         version.dataset.conversationVersion = selected.updated_at;
