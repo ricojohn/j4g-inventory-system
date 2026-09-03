@@ -7,7 +7,7 @@
     $selectedConversationId = $selectedConversation?->id;
 @endphp
 
-<div class="space-y-4" data-messenger-inbox>
+<div class="flex h-full min-h-0 flex-col gap-4 overflow-hidden" data-messenger-inbox>
     <x-ui.page-header title="Facebook Messenger" subtitle="AI and staff-managed customer conversations" />
 
     @can('view messenger conversations')
@@ -19,9 +19,9 @@
         </div>
     @endcan
 
-    <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div class="grid h-[calc(100vh-14rem)] min-h-0 grid-cols-1 lg:grid-cols-[21rem_minmax(0,1fr)_19rem] lg:items-stretch">
-            <aside class="min-h-0 overflow-hidden border-b border-gray-200 bg-gray-50/80 lg:border-b-0 lg:border-r">
+    <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[21rem_minmax(0,1fr)_19rem] lg:items-stretch">
+            <aside class="flex min-h-0 flex-col overflow-hidden border-b border-gray-200 bg-gray-50/80 lg:border-b-0 lg:border-r">
                 <div class="border-b border-gray-200 p-4">
                     <div class="flex items-center gap-2">
                         <input type="search" data-conversation-search class="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-[13px] outline-none ring-0 focus:border-brand focus:ring-2 focus:ring-brand/20" placeholder="Search conversations">
@@ -35,7 +35,7 @@
                     </div>
                 </div>
 
-                <div class="h-full min-h-0 overflow-y-auto" data-conversation-list>
+                <div class="min-h-0 flex-1 overflow-y-auto" data-conversation-list>
                     @forelse ($conversations as $conversation)
                         @php
                             $isSelected = $selectedConversationId === $conversation->id;
@@ -161,7 +161,7 @@
                 @endif
             </section>
 
-            <aside class="bg-gray-50/80">
+            <aside class="flex min-h-0 flex-col overflow-y-auto bg-gray-50/80">
                 @if ($selectedConversation)
                     <div class="border-b border-gray-200 p-4">
                         <div class="flex items-start justify-between gap-3">
