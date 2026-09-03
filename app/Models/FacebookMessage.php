@@ -23,4 +23,9 @@ class FacebookMessage extends Model
     {
         return $this->belongsTo(FacebookWebhookEvent::class, 'facebook_webhook_event_id');
     }
+
+    public function isInbound(): bool
+    {
+        return $this->direction === 'inbound';
+    }
 }

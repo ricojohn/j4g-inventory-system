@@ -67,6 +67,13 @@
                                     <span class="rounded-full bg-gray-100 px-2 py-0.5">{{ ucfirst($conversation->control_mode) }}</span>
                                     <span class="rounded-full bg-gray-100 px-2 py-0.5">{{ str($conversation->state)->headline() }}</span>
                                 </div>
+                                @if ($conversation->tags->isNotEmpty())
+                                    <div class="mt-2 flex flex-wrap gap-1">
+                                        @foreach ($conversation->tags as $tag)
+                                            <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">{{ $tag->name }}</span>
+                                        @endforeach
+                                    </div>
+                                @endif
                             </div>
                         </a>
                     @empty
@@ -83,8 +90,8 @@
                                 {{ strtoupper(substr($selectedConversation->draft?->customer_name ?? $selectedConversation->psid, 0, 1)) }}
                             </div>
                             <div>
-                                <h2 class="text-[15px] font-semibold text-gray-900">{{ $selectedConversation->draft?->customer_name ?? $selectedConversation->psid }}</h2>
-                                <p class="text-[12px] text-gray-500">{{ $selectedConversation->page->name }} · {{ $selectedConversation->psid }}</p>
+                                <h2 class="text-[15px] font-semibold text-gray-900" data-conversation-customer-name>{{ $selectedConversation->draft?->customer_name ?? $selectedConversation->psid }}</h2>
+                                <p class="text-[12px] text-gray-500"><span data-conversation-page-name>{{ $selectedConversation->page->name }}</span> · <span data-conversation-psid>{{ $selectedConversation->psid }}</span></p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -101,9 +108,9 @@
                     </div>
 
                     <div class="flex-1 overflow-y-auto bg-white px-4 py-5">
-                        <div class="mx-auto flex max-w-4xl flex-col gap-3">
+                        <div class="mx-auto flex max-w-4xl flex-col gap-3" data-message-list>
                             @forelse ($selectedConversation->messages as $message)
-                                <div class="flex {{ $message->direction === 'inbound' ? 'justify-start' : 'justify-end' }}">
+                                <div class="flex {{ $message->direction === 'inbound' ? 'justify-start' : 'justify-end' }}" data-message-item data-message-id="{{ $message->id }}">
                                     <div class="max-w-[80%] rounded-2xl px-4 py-3 text-[13px] shadow-sm {{ $message->direction === 'inbound' ? 'bg-gray-100 text-gray-900' : 'bg-brand text-white' }}">
                                         <p class="mb-1 text-[11px] font-medium {{ $message->direction === 'inbound' ? 'text-gray-500' : 'text-brand-soft' }}">
                                             {{ ucfirst($message->sender_type) }} · {{ $message->created_at?->timezone(config('app.timezone'))->format('g:i A') }}
@@ -148,8 +155,8 @@
                     <div class="border-b border-gray-200 p-4">
                         <div class="flex items-start justify-between gap-3">
                             <div>
-                                <h3 class="text-[15px] font-semibold text-gray-900">{{ $selectedConversation->draft?->customer_name ?? 'Contact details' }}</h3>
-                                <p class="mt-1 text-[12px] text-gray-500">{{ $selectedConversation->psid }}</p>
+                                <h3 class="text-[15px] font-semibold text-gray-900" data-sidebar-customer-name>{{ $selectedConversation->draft?->customer_name ?? 'Contact details' }}</h3>
+                                <p class="mt-1 text-[12px] text-gray-500" data-sidebar-psid>{{ $selectedConversation->psid }}</p>
                             </div>
                             <span class="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-gray-600">{{ ucfirst($selectedConversation->control_mode) }}</span>
                         </div>
@@ -161,13 +168,46 @@
                     </div>
 
                     <div class="border-b border-gray-200 p-4">
+                        <h4 class="mb-2 text-[13px] font-semibold text-gray-900">Tags</h4>
+                        <div class="flex flex-wrap gap-2">
+                            @forelse ($selectedConversation->tags as $tag)
+                                <form method="POST" action="{{ route('messenger.tags.destroy', [$selectedConversation, $tag]) }}">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-[12px] font-medium text-gray-700 hover:bg-gray-200">
+                                        {{ $tag->name }} ×
+                                    </button>
+                                </form>
+                            @empty
+                                <p class="text-[13px] text-gray-500">No tags yet.</p>
+                            @endforelse
+                        </div>
+                        <form method="POST" action="{{ route('messenger.tags.store', $selectedConversation) }}" class="mt-3 flex gap-2">
+                            @csrf
+                            <input name="name" class="w-full rounded-md border-gray-300 text-sm" placeholder="Add tag">
+                            <button type="submit" class="rounded-md bg-brand px-3 py-2 text-[12px] font-medium text-white">Add</button>
+                        </form>
+                        @if (! empty($tags) && $tags->isNotEmpty())
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                @foreach ($tags->whereNotIn('id', $selectedConversation->tags->pluck('id')) as $tag)
+                                    <form method="POST" action="{{ route('messenger.tags.store', $selectedConversation) }}">
+                                        @csrf
+                                        <input type="hidden" name="name" value="{{ $tag->name }}">
+                                        <button type="submit" class="rounded-full border border-gray-200 px-3 py-1 text-[12px] text-gray-600">{{ $tag->name }}</button>
+                                    </form>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="border-b border-gray-200 p-4">
                         <h4 class="mb-2 text-[13px] font-semibold text-gray-900">Order status</h4>
                         @if ($selectedConversation->draft)
                             <div class="space-y-3 text-[13px] text-gray-700">
-                                <div><span class="text-gray-500">Draft status:</span> {{ str($selectedConversation->draft->status)->headline() }}</div>
-                                <div><span class="text-gray-500">Fulfillment:</span> {{ str($selectedConversation->draft->fulfillment_method ?? 'n/a')->headline() }}</div>
-                                <div><span class="text-gray-500">Payment:</span> {{ $selectedConversation->draft->payment_method_preference ?? 'n/a' }}</div>
-                                <div><span class="text-gray-500">Address:</span> {{ $selectedConversation->draft->delivery_address ?? 'n/a' }}</div>
+                                <div><span class="text-gray-500">Draft status:</span> <span data-draft-status>{{ str($selectedConversation->draft->status)->headline() }}</span></div>
+                                <div><span class="text-gray-500">Fulfillment:</span> <span data-draft-fulfillment>{{ str($selectedConversation->draft->fulfillment_method ?? 'n/a')->headline() }}</span></div>
+                                <div><span class="text-gray-500">Payment:</span> <span data-draft-payment>{{ $selectedConversation->draft->payment_method_preference ?? 'n/a' }}</span></div>
+                                <div><span class="text-gray-500">Address:</span> <span data-draft-address>{{ $selectedConversation->draft->delivery_address ?? 'n/a' }}</span></div>
                             </div>
                         @else
                             <p class="text-[13px] text-gray-500">No order draft has been collected yet.</p>
@@ -179,9 +219,9 @@
                         @if ($selectedConversation->draft)
                             <div class="space-y-3">
                                 @if ($selectedConversation->draft->summary_text)
-                                    <pre class="max-h-44 overflow-auto whitespace-pre-wrap rounded-xl bg-white p-3 text-[12px] text-gray-700 shadow-sm">{{ $selectedConversation->draft->summary_text }}</pre>
+                                    <pre class="max-h-44 overflow-auto whitespace-pre-wrap rounded-xl bg-white p-3 text-[12px] text-gray-700 shadow-sm" data-draft-summary>{{ $selectedConversation->draft->summary_text }}</pre>
                                 @else
-                                    <p class="text-[13px] text-gray-500">Prepare a final summary to lock the order details before confirmation.</p>
+                                    <p class="text-[13px] text-gray-500" data-draft-summary-empty>Prepare a final summary to lock the order details before confirmation.</p>
                                 @endif
 
                                 @if ($selectedConversation->draft->items->isNotEmpty())

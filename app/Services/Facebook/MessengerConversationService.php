@@ -62,6 +62,11 @@ class MessengerConversationService
 
         try {
             $parsed = $this->aiProviderManager->getDefaultProvider()->parseOrderMessage((string) $message->body);
+            if ($this->shouldEscalateToHuman($parsed, (string) $message->body)) {
+                $this->escalateToHumanReview($conversation, 'This inquiry needs staff review before we can answer safely.');
+
+                return;
+            }
             $this->applyParsedData($draft, $parsed);
             $draft = $draft->fresh('items.cell');
 
@@ -76,6 +81,40 @@ class MessengerConversationService
             $this->queueReply($conversation, 'I could not safely match those order details. A staff member will review the conversation.');
             $this->broadcastConversationUpdated($conversation->fresh());
         }
+    }
+
+    /**
+     * @param array<string, mixed> $parsed
+     */
+    private function shouldEscalateToHuman(array $parsed, string $body): bool
+    {
+        $confidence = (float) ($parsed['confidence'] ?? 0);
+        $intent = (string) ($parsed['intent'] ?? 'unclear');
+        $isBusinessInquiry = str($body)->contains([
+            'price', 'price list', 'available', 'available products', 'color', 'size', 'stock', 'order', 'delivery', 'pickup', 'payment',
+        ]);
+
+        if ($intent === 'unclear') {
+            return true;
+        }
+
+        if ($confidence < 0.55 && ! $isBusinessInquiry) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function escalateToHumanReview(FacebookConversation $conversation, string $message): void
+    {
+        $conversation->update([
+            'control_mode' => 'human',
+            'state' => 'needs_review',
+            'version' => $conversation->version + 1,
+        ]);
+
+        $this->queueReply($conversation, $message, true);
+        $this->broadcastConversationUpdated($conversation->fresh());
     }
 
     /** @param array<string, mixed> $parsed */
@@ -157,7 +196,7 @@ class MessengerConversationService
 
     private function broadcastConversationUpdated(FacebookConversation $conversation): void
     {
-        $conversation->loadMissing('page', 'assignedUser', 'draft');
+        $conversation->loadMissing('page', 'assignedUser', 'draft', 'tags');
         $conversation->loadCount(['messages as unread_message_count' => fn ($query) => $query->where('direction', 'inbound')]);
 
         broadcast(new MessengerConversationUpdated([

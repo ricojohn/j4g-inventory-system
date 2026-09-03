@@ -6,6 +6,7 @@ use App\Events\MessengerConversationUpdated;
 use App\Http\Requests\UpdateMessengerOrderDraftRequest;
 use App\Models\FacebookConversation;
 use App\Models\FacebookMessage;
+use App\Models\FacebookTag;
 use App\Models\ProductColorSize;
 use App\Services\Facebook\CreateMessengerOrderService;
 use App\Services\Facebook\MessengerConversationService;
@@ -32,8 +33,14 @@ class FacebookConversationController extends Controller
     {
         $this->assertBranch($request, $conversation);
         [$conversations, $selectedConversation, $cells] = $this->loadInboxState($request, $conversation);
+        $this->markAsRead($selectedConversation);
 
-        return view('facebook-conversations.show', compact('conversations', 'selectedConversation', 'cells'));
+        $tags = FacebookTag::query()
+            ->when($request->user()->branch_id, fn ($query, $branchId) => $query->where('branch_id', $branchId))
+            ->orderBy('name')
+            ->get();
+
+        return view('facebook-conversations.show', compact('conversations', 'selectedConversation', 'cells', 'tags'));
     }
 
     public function snapshot(Request $request, FacebookConversation $conversation): JsonResponse
@@ -48,6 +55,34 @@ class FacebookConversationController extends Controller
             'cells' => $cells->map(fn (ProductColorSize $cell) => $this->cellSummary($cell)),
             'selectedConversationId' => $selectedConversation?->id,
         ]);
+    }
+
+    public function markTag(Request $request, FacebookConversation $conversation): RedirectResponse
+    {
+        $this->assertBranch($request, $conversation);
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'color' => ['nullable', 'string', 'max:32'],
+        ]);
+
+        DB::transaction(function () use ($validated, $conversation): void {
+            $tag = FacebookTag::query()->firstOrCreate(
+                ['branch_id' => $conversation->branch_id, 'slug' => str($validated['name'])->slug()->toString()],
+                ['name' => $validated['name'], 'color' => $validated['color'] ?? 'gray'],
+            );
+            $conversation->tags()->syncWithoutDetaching([$tag->id]);
+        });
+
+        return back()->with('success', 'Tag added.');
+    }
+
+    public function removeTag(Request $request, FacebookConversation $conversation, FacebookTag $tag): RedirectResponse
+    {
+        $this->assertBranch($request, $conversation);
+        abort_if($tag->branch_id !== $conversation->branch_id, 404);
+        $conversation->tags()->detach($tag->id);
+
+        return back()->with('success', 'Tag removed.');
     }
 
     public function takeOver(Request $request, FacebookConversation $conversation): RedirectResponse
@@ -125,6 +160,7 @@ class FacebookConversationController extends Controller
             return back()->with('error', 'Prepare a current final summary before confirming.');
         }
         $draft->update(['status' => 'confirmed', 'confirmed_at' => now(), 'confirmation_actor_type' => 'staff', 'confirmed_by_user_id' => $request->user()->id]);
+        $this->markConversationCustomer($conversation, $draft->customer_name, $draft->psid);
 
         return back()->with('success', 'Summary explicitly confirmed. Create Order is now available.');
     }
@@ -134,6 +170,7 @@ class FacebookConversationController extends Controller
         $this->assertBranch($request, $conversation);
         try {
             $order = $service->execute($conversation->draft()->firstOrFail(), $request->user());
+            $this->markAsRead($conversation->fresh());
 
             return redirect()->route('orders.show', $order)->with('success', 'Create Order completed.');
         } catch (RuntimeException $exception) {
@@ -146,6 +183,33 @@ class FacebookConversationController extends Controller
         abort_if($request->user()->branch_id !== null && $request->user()->branch_id !== $conversation->branch_id, 404);
     }
 
+    private function markAsRead(?FacebookConversation $conversation): void
+    {
+        if (! $conversation) {
+            return;
+        }
+
+        $conversation->update(['last_read_at' => now()]);
+        $this->broadcastConversationUpdated($conversation->fresh());
+    }
+
+    private function markConversationCustomer(FacebookConversation $conversation, ?string $customerName, string $psid): void
+    {
+        if ($conversation->customer_id) {
+            return;
+        }
+
+        $customer = $conversation->customer ?: null;
+        if (! $customer) {
+            $customer = \App\Models\Customer::query()->firstOrCreate(
+                ['branch_id' => $conversation->branch_id, 'handle' => $psid],
+                ['name' => filled($customerName) ? $customerName : $psid, 'source' => \App\Enums\CustomerSource::Facebook],
+            );
+        }
+
+        $conversation->update(['customer_id' => $customer->id]);
+    }
+
     /**
      * @return array{0:\Illuminate\Contracts\Pagination\LengthAwarePaginator<int, FacebookConversation>, 1:FacebookConversation|null, 2:\Illuminate\Support\Collection<int, ProductColorSize>}
      */
@@ -154,22 +218,22 @@ class FacebookConversationController extends Controller
         $branchId = $request->user()->branch_id;
 
         $conversations = FacebookConversation::query()
-            ->with('page', 'assignedUser', 'draft')
-            ->withCount(['messages as unread_message_count' => fn (Builder $query) => $query->where('direction', 'inbound')])
+            ->with('page', 'assignedUser', 'draft', 'tags')
+            ->withCount(['messages as unread_message_count' => fn (Builder $query) => $query->where('direction', 'inbound')->whereRaw('facebook_messages.created_at > COALESCE(facebook_conversations.last_read_at, "1970-01-01 00:00:00")')])
             ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
             ->orderByDesc('last_inbound_at')
             ->orderByDesc('updated_at')
             ->paginate(30);
 
         $selectedConversation ??= $conversations->getCollection()->first() ?? FacebookConversation::query()
-            ->with('page', 'assignedUser', 'messages', 'draft.items.cell.color.product', 'draft.items.cell.color.color', 'draft.items.cell.size.size')
+            ->with('page', 'assignedUser', 'messages', 'draft.items.cell.color.product', 'draft.items.cell.color.color', 'draft.items.cell.size.size', 'tags')
             ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
             ->orderByDesc('last_inbound_at')
             ->orderByDesc('updated_at')
             ->first();
 
         if ($selectedConversation) {
-            $selectedConversation->load('page', 'assignedUser', 'messages', 'draft.items.cell.color.product', 'draft.items.cell.color.color', 'draft.items.cell.size.size');
+            $selectedConversation->load('page', 'assignedUser', 'messages', 'draft.items.cell.color.product', 'draft.items.cell.color.color', 'draft.items.cell.size.size', 'tags');
         }
 
         $cells = ProductColorSize::query()
@@ -184,7 +248,7 @@ class FacebookConversationController extends Controller
 
     private function conversationSummary(FacebookConversation $conversation): array
     {
-        $conversation->loadMissing('page', 'draft');
+        $conversation->loadMissing('page', 'draft', 'tags');
 
         return [
             'id' => $conversation->id,
@@ -203,7 +267,7 @@ class FacebookConversationController extends Controller
 
     private function conversationDetail(FacebookConversation $conversation): array
     {
-        $conversation->loadMissing('page', 'assignedUser', 'messages', 'draft.items.cell.color.product', 'draft.items.cell.color.color', 'draft.items.cell.size.size');
+        $conversation->loadMissing('page', 'assignedUser', 'messages', 'draft.items.cell.color.product', 'draft.items.cell.color.color', 'draft.items.cell.size.size', 'tags');
 
         return [
             'id' => $conversation->id,
@@ -267,7 +331,7 @@ class FacebookConversationController extends Controller
             return;
         }
 
-        $conversation->loadMissing('page', 'assignedUser', 'draft');
+        $conversation->loadMissing('page', 'assignedUser', 'draft', 'tags');
         $conversation->loadCount(['messages as unread_message_count' => fn ($query) => $query->where('direction', 'inbound')]);
 
         broadcast(new MessengerConversationUpdated([
