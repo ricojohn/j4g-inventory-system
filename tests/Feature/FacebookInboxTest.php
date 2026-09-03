@@ -5,6 +5,7 @@ use App\Models\FacebookConversation;
 use App\Models\FacebookMessage;
 use App\Models\FacebookPage;
 use App\Models\MessengerOrderDraft;
+use App\Services\Facebook\FacebookGraphClient;
 use Database\Seeders\UserSeeder;
 
 beforeEach(function () {
@@ -89,4 +90,58 @@ test('messenger snapshot returns the selected conversation state for live refres
         ->assertJsonPath('selectedConversation.id', $conversation->id)
         ->assertJsonPath('selectedConversation.control_mode', 'human')
         ->assertJsonPath('selectedConversation.messages.0.body', 'Reply');
+});
+
+test('manual sync ingests the latest Meta messages without duplicating rows', function () {
+    $staff = userWithRole('Staff');
+    $branch = $staff->branch;
+    $page = FacebookPage::query()->create([
+        'branch_id' => $branch->id,
+        'page_id' => 'page-sync-1',
+        'name' => 'J4G Messenger',
+        'status' => 'active',
+        'ai_enabled' => true,
+        'graph_api_version' => 'v23.0',
+    ]);
+
+    $client = \Mockery::mock(FacebookGraphClient::class);
+    $client->shouldReceive('listConversations')
+        ->twice()
+        ->andReturn([
+            'data' => [
+                ['id' => 'conv-1'],
+            ],
+            'paging' => ['cursors' => ['after' => null]],
+        ]);
+    $client->shouldReceive('listConversationMessages')
+        ->twice()
+        ->withArgs(fn ($calledPage, $conversationId) => $calledPage->is($page) && $conversationId === 'conv-1')
+        ->andReturn([
+            'data' => [
+                [
+                    'id' => 'mid.sync.1',
+                    'created_time' => now()->toIso8601String(),
+                    'from' => ['id' => 'psid-sync-1'],
+                    'to' => ['data' => [['id' => $page->page_id]]],
+                    'message' => ['text' => 'Hello from Meta'],
+                ],
+            ],
+            'paging' => ['cursors' => ['after' => null]],
+        ]);
+    app()->instance(FacebookGraphClient::class, $client);
+
+    $this->actingAs($staff)
+        ->post(route('messenger.sync'))
+        ->assertRedirect();
+
+    expect(FacebookConversation::query()->count())->toBe(1)
+        ->and(FacebookMessage::query()->count())->toBe(1)
+        ->and(FacebookMessage::query()->first()->body)->toBe('Hello from Meta');
+
+    $this->actingAs($staff)
+        ->post(route('messenger.sync'))
+        ->assertRedirect();
+
+    expect(FacebookConversation::query()->count())->toBe(1)
+        ->and(FacebookMessage::query()->count())->toBe(1);
 });

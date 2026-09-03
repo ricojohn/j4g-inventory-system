@@ -10,6 +10,15 @@
 <div class="space-y-4" data-messenger-inbox>
     <x-ui.page-header title="Facebook Messenger" subtitle="AI and staff-managed customer conversations" />
 
+    @can('view messenger conversations')
+        <div class="flex justify-end">
+            <form method="POST" action="{{ route('messenger.sync') }}" class="flex items-center gap-2">
+                @csrf
+                <x-ui.button type="submit">Sync Messages</x-ui.button>
+            </form>
+        </div>
+    @endcan
+
     <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div class="grid min-h-[calc(100vh-14rem)] grid-cols-1 lg:grid-cols-[21rem_minmax(0,1fr)_19rem]">
             <aside class="border-b border-gray-200 bg-gray-50/80 lg:border-b-0 lg:border-r">

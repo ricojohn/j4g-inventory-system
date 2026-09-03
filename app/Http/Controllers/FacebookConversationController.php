@@ -6,11 +6,13 @@ use App\Events\MessengerConversationUpdated;
 use App\Http\Requests\UpdateMessengerOrderDraftRequest;
 use App\Models\FacebookConversation;
 use App\Models\FacebookMessage;
+use App\Models\FacebookPage;
 use App\Models\FacebookTag;
 use App\Models\ProductColorSize;
 use App\Services\Facebook\CreateMessengerOrderService;
 use App\Services\Facebook\MessengerConversationService;
 use App\Services\Facebook\MessengerOrderDraftService;
+use App\Services\Facebook\MessengerSyncService;
 use Illuminate\Contracts\View\View as ViewContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -55,6 +57,35 @@ class FacebookConversationController extends Controller
             'cells' => $cells->map(fn (ProductColorSize $cell) => $this->cellSummary($cell)),
             'selectedConversationId' => $selectedConversation?->id,
         ]);
+    }
+
+    public function sync(Request $request, MessengerSyncService $service): RedirectResponse
+    {
+        $branchId = $request->user()->branch_id;
+
+        $pages = FacebookPage::query()
+            ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
+            ->where('status', 'active')
+            ->get();
+
+        abort_if($pages->isEmpty(), 422, 'No active Facebook pages are configured for this branch.');
+
+        $summary = $pages->reduce(function (array $carry, FacebookPage $page) use ($service): array {
+            $result = $service->syncPage($page);
+
+            return [
+                'pages' => $carry['pages'] + 1,
+                'conversations' => $carry['conversations'] + ($result['conversations'] ?? 0),
+                'messages' => $carry['messages'] + ($result['messages'] ?? 0),
+            ];
+        }, ['pages' => 0, 'conversations' => 0, 'messages' => 0]);
+
+        return back()->with('success', sprintf(
+            'Synced %d page(s), %d conversation(s), and %d message(s) from Meta.',
+            $summary['pages'],
+            $summary['conversations'],
+            $summary['messages'],
+        ));
     }
 
     public function markTag(Request $request, FacebookConversation $conversation): RedirectResponse
