@@ -27,7 +27,7 @@ return new class extends Migration
             $table->foreignId('facebook_conversation_id')->constrained()->cascadeOnDelete();
             $table->foreignId('facebook_tag_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
-            $table->unique(['facebook_conversation_id', 'facebook_tag_id']);
+            $table->unique(['facebook_conversation_id', 'facebook_tag_id'], 'fb_conv_tag_unique');
         });
     }
 
