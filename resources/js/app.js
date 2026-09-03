@@ -1,5 +1,6 @@
 import './bootstrap';
 import './data-table';
+import './messenger-inbox';
 import { initColorImageViewModal } from './color-image';
 
 window.postData = async function postData(url, data = {}, method = 'POST') {
@@ -186,6 +187,11 @@ window.initPusher = function initPusher() {
         pushNotification(data);
         showStockToast(data);
         window.dispatchEvent(new CustomEvent('inventory:updated', { detail: data }));
+    });
+
+    const messengerChannel = pusher.subscribe('messenger');
+    messengerChannel.bind('messenger.updated', (data) => {
+        window.dispatchEvent(new CustomEvent('messenger:updated', { detail: data }));
     });
 };
 
@@ -413,5 +419,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initNotifications();
     initUserMenu();
     initPusher();
+    window.initMessengerInbox?.();
     initColorImageViewModal();
 });

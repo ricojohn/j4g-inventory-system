@@ -2,6 +2,7 @@
 
 namespace App\Services\Facebook;
 
+use App\Events\MessengerConversationUpdated;
 use App\Jobs\SendFacebookMessage;
 use App\Models\FacebookConversation;
 use App\Models\FacebookMessage;
@@ -39,6 +40,7 @@ class MessengerConversationService
                 $automationUser = $conversation->page->branch->automationUser;
                 if (! $automationUser) {
                     $this->queueReply($conversation, 'Thank you. Your final summary is confirmed. A staff member will complete Create Order.');
+                    $this->broadcastConversationUpdated($conversation->fresh());
 
                     return;
                 }
@@ -49,8 +51,10 @@ class MessengerConversationService
                 } catch (Throwable $exception) {
                     $this->queueReply($conversation, 'Your confirmation was received, but Create Order could not complete: '.$exception->getMessage());
                 }
+                $this->broadcastConversationUpdated($conversation->fresh());
             } else {
                 $this->queueReply($conversation, 'That summary expired. We need to review availability and send a new final summary.');
+                $this->broadcastConversationUpdated($conversation->fresh());
             }
 
             return;
@@ -67,8 +71,10 @@ class MessengerConversationService
             } else {
                 $this->queueReply($conversation, $this->nextQuestion($draft));
             }
+            $this->broadcastConversationUpdated($conversation->fresh());
         } catch (Throwable) {
             $this->queueReply($conversation, 'I could not safely match those order details. A staff member will review the conversation.');
+            $this->broadcastConversationUpdated($conversation->fresh());
         }
     }
 
@@ -144,7 +150,31 @@ class MessengerConversationService
             'status' => 'pending',
         ]);
         DB::afterCommit(fn () => SendFacebookMessage::dispatch($message->id));
+        DB::afterCommit(fn () => $this->broadcastConversationUpdated($conversation->fresh()));
 
         return $message;
+    }
+
+    private function broadcastConversationUpdated(FacebookConversation $conversation): void
+    {
+        $conversation->loadMissing('page', 'assignedUser', 'draft');
+        $conversation->loadCount(['messages as unread_message_count' => fn ($query) => $query->where('direction', 'inbound')->whereNull('read_at')]);
+
+        broadcast(new MessengerConversationUpdated([
+            'conversation' => [
+                'id' => $conversation->id,
+                'branch_id' => $conversation->branch_id,
+                'psid' => $conversation->psid,
+                'page_name' => $conversation->page->name,
+                'control_mode' => $conversation->control_mode,
+                'state' => $conversation->state,
+                'assigned_user_name' => $conversation->assignedUser?->name,
+                'last_inbound_at' => $conversation->last_inbound_at?->toIso8601String(),
+                'last_outbound_at' => $conversation->last_outbound_at?->toIso8601String(),
+                'unread_message_count' => (int) ($conversation->unread_message_count ?? 0),
+                'draft_status' => $conversation->draft?->status,
+                'updated_at' => $conversation->updated_at?->toIso8601String(),
+            ],
+        ]));
     }
 }

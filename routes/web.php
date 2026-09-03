@@ -47,6 +47,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:view messenger conversations')->prefix('messenger')->name('messenger.')->group(function () {
         Route::get('/conversations', [FacebookConversationController::class, 'index'])->name('index');
         Route::get('/conversations/{conversation}', [FacebookConversationController::class, 'show'])->name('show');
+        Route::get('/conversations/{conversation}/snapshot', [FacebookConversationController::class, 'snapshot'])->name('snapshot');
         Route::post('/conversations/{conversation}/take-over', [FacebookConversationController::class, 'takeOver'])->middleware('permission:take over messenger conversations')->name('take-over');
         Route::post('/conversations/{conversation}/return-to-ai', [FacebookConversationController::class, 'returnToAi'])->middleware('permission:take over messenger conversations')->name('return-to-ai');
         Route::post('/conversations/{conversation}/reply', [FacebookConversationController::class, 'reply'])->middleware('permission:take over messenger conversations')->name('reply');
