@@ -111,7 +111,8 @@ class MessengerSyncService
         }
 
         $createdAt = filled(data_get($remoteMessage, 'created_time'))
-            ? CarbonImmutable::parse((string) data_get($remoteMessage, 'created_time'))
+            // Meta returns an offset timestamp. Normalize to UTC before storing in MySQL DATETIME.
+            ? CarbonImmutable::parse((string) data_get($remoteMessage, 'created_time'))->utc()
             : now();
         $body = data_get($remoteMessage, 'message')
             ?? data_get($remoteMessage, 'story')
