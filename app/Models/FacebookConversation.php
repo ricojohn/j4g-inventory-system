@@ -4,13 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class FacebookConversation extends Model
 {
-    protected $fillable = ['branch_id', 'facebook_page_id', 'psid', 'customer_id', 'state', 'control_mode', 'assigned_user_id', 'taken_over_at', 'returned_to_ai_at', 'last_inbound_at', 'last_outbound_at', 'last_read_at', 'version'];
+    protected $fillable = ['branch_id', 'facebook_page_id', 'psid', 'customer_name', 'customer_id', 'state', 'control_mode', 'assigned_user_id', 'taken_over_at', 'returned_to_ai_at', 'last_inbound_at', 'last_outbound_at', 'last_read_at', 'version'];
 
     protected function casts(): array
     {

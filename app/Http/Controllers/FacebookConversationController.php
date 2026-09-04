@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CustomerSource;
 use App\Events\MessengerConversationUpdated;
 use App\Http\Requests\UpdateMessengerOrderDraftRequest;
+use App\Models\Customer;
 use App\Models\FacebookConversation;
 use App\Models\FacebookMessage;
 use App\Models\FacebookPage;
@@ -13,11 +15,12 @@ use App\Services\Facebook\CreateMessengerOrderService;
 use App\Services\Facebook\MessengerConversationService;
 use App\Services\Facebook\MessengerOrderDraftService;
 use App\Services\Facebook\MessengerSyncService;
-use Illuminate\Contracts\View\View as ViewContract;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use RuntimeException;
@@ -232,9 +235,9 @@ class FacebookConversationController extends Controller
 
         $customer = $conversation->customer ?: null;
         if (! $customer) {
-            $customer = \App\Models\Customer::query()->firstOrCreate(
+            $customer = Customer::query()->firstOrCreate(
                 ['branch_id' => $conversation->branch_id, 'handle' => $psid],
-                ['name' => filled($customerName) ? $customerName : $psid, 'source' => \App\Enums\CustomerSource::Facebook],
+                ['name' => filled($customerName) ? $customerName : $psid, 'source' => CustomerSource::Facebook],
             );
         }
 
@@ -242,7 +245,7 @@ class FacebookConversationController extends Controller
     }
 
     /**
-     * @return array{0:\Illuminate\Contracts\Pagination\LengthAwarePaginator<int, FacebookConversation>, 1:FacebookConversation|null, 2:\Illuminate\Support\Collection<int, ProductColorSize>}
+     * @return array{0:LengthAwarePaginator<int, FacebookConversation>, 1:FacebookConversation|null, 2:Collection<int, ProductColorSize>}
      */
     private function loadInboxState(Request $request, ?FacebookConversation $selectedConversation = null): array
     {
@@ -284,7 +287,7 @@ class FacebookConversationController extends Controller
         return [
             'id' => $conversation->id,
             'psid' => $conversation->psid,
-            'customer_name' => $conversation->customer?->name,
+            'customer_name' => $conversation->customer?->name ?? $conversation->customer_name ?? $conversation->draft?->customer_name,
             'page_name' => $conversation->page->name,
             'control_mode' => $conversation->control_mode,
             'state' => $conversation->state,
@@ -304,7 +307,7 @@ class FacebookConversationController extends Controller
         return [
             'id' => $conversation->id,
             'psid' => $conversation->psid,
-            'customer_name' => $conversation->customer?->name,
+            'customer_name' => $conversation->customer?->name ?? $conversation->customer_name ?? $conversation->draft?->customer_name,
             'page_name' => $conversation->page->name,
             'control_mode' => $conversation->control_mode,
             'state' => $conversation->state,
@@ -372,7 +375,7 @@ class FacebookConversationController extends Controller
                 'id' => $conversation->id,
                 'branch_id' => $conversation->branch_id,
                 'psid' => $conversation->psid,
-                'customer_name' => $conversation->customer?->name,
+                'customer_name' => $conversation->customer?->name ?? $conversation->customer_name ?? $conversation->draft?->customer_name,
                 'page_name' => $conversation->page->name,
                 'control_mode' => $conversation->control_mode,
                 'state' => $conversation->state,

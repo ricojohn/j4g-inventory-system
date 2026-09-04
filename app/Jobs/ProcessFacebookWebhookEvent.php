@@ -37,7 +37,7 @@ class ProcessFacebookWebhookEvent implements ShouldQueue
 
             $event->increment('attempts');
 
-            if (! in_array($event->event_type, ['message', 'postback'], true) || blank($event->sender_psid)) {
+            if (! in_array($event->event_type, ['message', 'message_echo', 'postback'], true) || blank($event->sender_psid)) {
                 $event->update(['status' => 'processed', 'processed_at' => now()]);
 
                 return null;
@@ -58,8 +58,8 @@ class ProcessFacebookWebhookEvent implements ShouldQueue
                     'branch_id' => $event->branch_id,
                     'facebook_conversation_id' => $conversation->id,
                     'meta_message_id' => $messageId,
-                    'direction' => 'inbound',
-                    'sender_type' => 'customer',
+                    'direction' => $event->event_type === 'message_echo' ? 'outbound' : 'inbound',
+                    'sender_type' => $event->event_type === 'message_echo' ? 'staff' : 'customer',
                     'message_type' => $event->event_type,
                     'body' => $body,
                     'attachments' => data_get($payload, 'message.attachments'),
@@ -67,7 +67,13 @@ class ProcessFacebookWebhookEvent implements ShouldQueue
                 ],
             );
 
-            $conversation->update(['last_inbound_at' => $event->meta_timestamp ?? now()]);
+            $customerName = data_get($payload, 'sender.name')
+                ?? data_get($payload, 'message.from.name')
+                ?? data_get($payload, 'messaging_customer_information.name');
+            $conversation->update(array_filter([
+                'last_inbound_at' => $event->event_type === 'message_echo' ? null : ($event->meta_timestamp ?? now()),
+                'customer_name' => filled($customerName) ? str($customerName)->limit(255)->toString() : null,
+            ], static fn ($value) => $value !== null));
             $event->update(['status' => 'processed', 'processed_at' => now(), 'failed_at' => null, 'error_message' => null]);
 
             return [$conversation->id, $message->id];

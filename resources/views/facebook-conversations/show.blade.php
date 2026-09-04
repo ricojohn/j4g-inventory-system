@@ -39,11 +39,12 @@
                     @forelse ($conversations as $conversation)
                         @php
                             $isSelected = $selectedConversationId === $conversation->id;
+                            $conversationName = $conversation->customer?->name ?? $conversation->customer_name ?? $conversation->draft?->customer_name ?? 'Customer';
                             $conversationSearchText = strtolower(trim(sprintf(
                                 '%s %s %s %s',
                                 $conversation->psid,
                                 $conversation->page->name,
-                                $conversation->draft?->customer_name ?? '',
+                                $conversationName,
                                 $conversation->assignedUser?->name ?? '',
                             )));
                         @endphp
@@ -54,12 +55,12 @@
                             class="{{ $isSelected ? 'border-l-4 border-brand bg-white shadow-sm' : 'border-l-4 border-transparent hover:bg-white/70' }} flex items-start gap-3 border-b border-gray-100 px-4 py-4 transition"
                         >
                             <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
-                                {{ strtoupper(substr($conversation->draft?->customer_name ?? $conversation->psid, 0, 1)) }}
+                                {{ strtoupper(substr($conversationName, 0, 1)) }}
                             </div>
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-start justify-between gap-2">
                                     <div class="min-w-0">
-                                        <p class="truncate text-[13px] font-semibold text-gray-900">{{ $conversation->draft?->customer_name ?? $conversation->psid }}</p>
+                                        <p class="truncate text-[13px] font-semibold text-gray-900">{{ $conversationName }}</p>
                                         <p class="truncate text-[12px] text-gray-500">{{ $conversation->page->name }} · {{ str($conversation->state)->headline() }}</p>
                                     </div>
                                     <div class="text-right text-[11px] text-gray-500">
@@ -97,10 +98,10 @@
                         <div class="flex items-center justify-between gap-4">
                         <div class="flex items-center gap-3">
                             <div class="flex h-12 w-12 items-center justify-center rounded-full bg-brand-soft text-base font-semibold text-brand">
-                                {{ strtoupper(substr($selectedConversation->customer?->name ?? $selectedConversation->draft?->customer_name ?? 'Customer', 0, 1)) }}
+                                {{ strtoupper(substr($selectedConversation->customer?->name ?? $selectedConversation->customer_name ?? $selectedConversation->draft?->customer_name ?? 'Customer', 0, 1)) }}
                             </div>
                             <div>
-                                <h2 class="text-[15px] font-semibold text-gray-900" data-conversation-customer-name>{{ $selectedConversation->customer?->name ?? $selectedConversation->draft?->customer_name ?? 'Customer' }}</h2>
+                                <h2 class="text-[15px] font-semibold text-gray-900" data-conversation-customer-name>{{ $selectedConversation->customer?->name ?? $selectedConversation->customer_name ?? $selectedConversation->draft?->customer_name ?? 'Customer' }}</h2>
                                 <p class="text-[12px] text-gray-500"><span data-conversation-page-name>{{ $selectedConversation->page->name }}</span> · <span data-conversation-psid>{{ $selectedConversation->psid }}</span></p>
                             </div>
                         </div>
@@ -126,7 +127,7 @@
                                         <p class="mb-1 text-[11px] font-medium {{ $message->direction === 'inbound' ? 'text-gray-500' : 'text-brand-soft' }}">
                                             {{ ucfirst($message->sender_type) }} · {{ $message->created_at?->timezone(config('app.timezone'))->format('g:i A') }}
                                         </p>
-                                        <p class="whitespace-pre-wrap">{{ filled($message->body) ? $message->body : '['.$message->message_type.']' }}</p>
+                                        <p class="whitespace-pre-wrap">{{ filled($message->body) ? $message->body : ($message->attachments ? 'Attachment' : '['.$message->message_type.']') }}</p>
                                     </div>
                                 </div>
                             @empty
@@ -166,7 +167,7 @@
                     <div class="border-b border-gray-200 p-4">
                         <div class="flex items-start justify-between gap-3">
                             <div>
-                                <h3 class="text-[15px] font-semibold text-gray-900" data-sidebar-customer-name>{{ $selectedConversation->customer?->name ?? $selectedConversation->draft?->customer_name ?? 'Customer' }}</h3>
+                                <h3 class="text-[15px] font-semibold text-gray-900" data-sidebar-customer-name>{{ $selectedConversation->customer?->name ?? $selectedConversation->customer_name ?? $selectedConversation->draft?->customer_name ?? 'Customer' }}</h3>
                                 <p class="mt-1 text-[12px] text-gray-500" data-sidebar-psid>{{ $selectedConversation->psid }}</p>
                             </div>
                             <span class="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-gray-600">{{ ucfirst($selectedConversation->control_mode) }}</span>

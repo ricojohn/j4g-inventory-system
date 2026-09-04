@@ -105,6 +105,11 @@ class MessengerSyncService
             ['branch_id' => $page->branch_id],
         );
 
+        $remoteName = data_get($remoteMessage, 'from.name') ?? data_get($remoteMessage, 'sender.name');
+        if ($direction === 'inbound' && filled($remoteName) && blank($conversation->customer_name)) {
+            $conversation->update(['customer_name' => str($remoteName)->limit(255)->toString()]);
+        }
+
         $createdAt = filled(data_get($remoteMessage, 'created_time'))
             ? CarbonImmutable::parse((string) data_get($remoteMessage, 'created_time'))
             : now();
@@ -120,8 +125,8 @@ class MessengerSyncService
                 'branch_id' => $page->branch_id,
                 'direction' => $direction,
                 'sender_type' => $direction === 'inbound' ? 'customer' : 'staff',
-                'message_type' => $body ? 'text' : 'message',
-                'body' => is_string($body) ? $body : json_encode($body, JSON_UNESCAPED_UNICODE),
+                'message_type' => filled($body) ? 'text' : ($attachments ? 'attachment' : 'message'),
+                'body' => is_string($body) ? $body : (is_null($body) ? null : json_encode($body, JSON_UNESCAPED_UNICODE)),
                 'attachments' => $attachments,
                 'status' => 'received',
                 'sent_at' => $createdAt,

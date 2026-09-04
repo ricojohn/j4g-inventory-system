@@ -36,7 +36,9 @@ class FacebookWebhookIngestService
                         [
                             'branch_id' => $page->branch_id,
                             'event_type' => $this->eventType($event),
-                            'sender_psid' => data_get($event, 'sender.id'),
+                            'sender_psid' => data_get($event, 'message.is_echo')
+                                ? (data_get($event, 'recipient.id') ?? data_get($event, 'sender.id'))
+                                : data_get($event, 'sender.id'),
                             'meta_timestamp' => isset($event['timestamp'])
                                 ? CarbonImmutable::createFromTimestampMs((int) $event['timestamp'])
                                 : null,

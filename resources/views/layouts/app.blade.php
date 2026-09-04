@@ -22,7 +22,7 @@
 <body class="min-h-screen bg-surface font-sans text-gray-900 antialiased">
     @auth
         <div id="sidebar-backdrop" class="fixed inset-0 z-40 hidden bg-gray-900/40 lg:hidden" aria-hidden="true"></div>
-        <div class="flex min-h-screen">
+        <div class="flex h-screen max-h-screen min-h-0 overflow-hidden">
             @include('partials.sidebar')
             <div class="flex min-h-screen min-w-0 flex-1 flex-col overflow-hidden">
                 @include('partials.navbar')
