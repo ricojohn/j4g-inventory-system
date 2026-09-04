@@ -30,6 +30,7 @@ function formatTime(iso) {
     return new Intl.DateTimeFormat(undefined, {
         hour: 'numeric',
         minute: '2-digit',
+        timeZone: document.querySelector('[data-app-timezone]')?.dataset.appTimezone || 'Asia/Manila',
     }).format(date);
 }
 

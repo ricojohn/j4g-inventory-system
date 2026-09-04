@@ -7,7 +7,7 @@
     $selectedConversationId = $selectedConversation?->id;
 @endphp
 
-<div class="flex h-full min-h-0 flex-col gap-4 overflow-hidden" data-messenger-inbox>
+<div class="flex h-full min-h-0 flex-col gap-4 overflow-hidden" data-messenger-inbox data-app-timezone="{{ config('app.timezone') }}">
     <x-ui.page-header title="Facebook Messenger" subtitle="AI and staff-managed customer conversations" />
 
     @can('view messenger conversations')
