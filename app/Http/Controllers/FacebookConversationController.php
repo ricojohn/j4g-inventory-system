@@ -326,7 +326,7 @@ class FacebookConversationController extends Controller
                     'ai_generated' => $message->ai_generated,
                     'status' => $message->status,
                     'sent_at' => $message->sent_at?->toIso8601String(),
-                    'created_at' => $message->created_at?->toIso8601String(),
+                    'created_at' => ($message->sent_at ?? $message->created_at)?->toIso8601String(),
                 ];
             }),
             'draft' => $conversation->draft ? [

@@ -135,6 +135,15 @@ class MessengerSyncService
             ],
         );
 
+        // Re-syncing corrects timestamps on rows imported before timestamp support was added.
+        if (! $message->wasRecentlyCreated) {
+            $message->update([
+                'sent_at' => $createdAt,
+                'created_at' => $createdAt,
+                'updated_at' => now(),
+            ]);
+        }
+
         if ($message->wasRecentlyCreated) {
             $conversation->forceFill([
                 'last_inbound_at' => $direction === 'inbound' ? $createdAt : $conversation->last_inbound_at,
