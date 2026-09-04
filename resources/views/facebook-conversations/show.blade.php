@@ -20,7 +20,7 @@
     @endcan
 
     <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[21rem_minmax(0,1fr)_19rem] lg:items-stretch">
+        <div class="grid h-full min-h-0 flex-1 grid-cols-1 lg:grid-cols-[21rem_minmax(0,1fr)_19rem] lg:items-stretch">
             <aside class="flex min-h-0 flex-col overflow-hidden border-b border-gray-200 bg-gray-50/80 lg:border-b-0 lg:border-r">
                 <div class="border-b border-gray-200 p-4">
                     <div class="flex items-center gap-2">
@@ -92,7 +92,7 @@
                 </div>
             </aside>
 
-            <section class="flex min-h-0 min-w-0 flex-col overflow-hidden border-b border-gray-200 lg:border-b-0 lg:border-r">
+            <section class="flex h-[100vh] max-h-[100vh] min-h-0 min-w-0 flex-col overflow-hidden border-b border-gray-200 lg:border-b-0 lg:border-r">
                 @if ($selectedConversation)
                     <div class="shrink-0 border-b border-gray-200 px-4 py-4" data-conversation-version="{{ $selectedConversation->updated_at?->toIso8601String() }}">
                         <div class="flex items-center justify-between gap-4">
