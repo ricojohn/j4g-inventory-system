@@ -1,5 +1,3 @@
-const POLL_INTERVAL_MS = 5000;
-
 function isMessengerInboxPage() {
     return Boolean(document.querySelector('[data-messenger-inbox]'));
 }
@@ -184,11 +182,4 @@ window.initMessengerInbox = function initMessengerInbox() {
     };
 
     window.addEventListener('messenger:updated', scheduleRefresh);
-
-    window.setInterval(async () => {
-        const snapshot = await fetchSnapshot();
-        if (snapshot) {
-            updateInboxFromSnapshot(snapshot);
-        }
-    }, POLL_INTERVAL_MS);
 };
