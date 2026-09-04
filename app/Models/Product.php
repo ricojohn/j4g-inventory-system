@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToBranch;
 use App\Services\ProductCodeService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -12,11 +13,14 @@ use Illuminate\Support\Facades\DB;
 
 class Product extends Model
 {
+    use BelongsToBranch;
+
     protected $fillable = [
         'name',
         'code',
         'description',
         'status',
+        'branch_id',
     ];
 
     protected static function booted(): void

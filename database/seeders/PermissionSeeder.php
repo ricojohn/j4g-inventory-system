@@ -52,6 +52,9 @@ class PermissionSeeder extends Seeder
             'manage finance',
             'view production',
             'manage production',
+            'view messenger conversations',
+            'take over messenger conversations',
+            'create messenger orders',
         ];
 
         foreach ($permissions as $permission) {
@@ -100,6 +103,9 @@ class PermissionSeeder extends Seeder
             'manage finance',
             'view production',
             'manage production',
+            'view messenger conversations',
+            'take over messenger conversations',
+            'create messenger orders',
         ])->get();
         $staff->syncPermissions($staffPermissions);
 
@@ -115,6 +121,7 @@ class PermissionSeeder extends Seeder
             'view customers',
             'view finance',
             'view production',
+            'view messenger conversations',
         ])->get();
         $viewer->syncPermissions($viewerPermissions);
     }

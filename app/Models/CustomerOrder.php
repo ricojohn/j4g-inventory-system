@@ -7,6 +7,7 @@ use App\Enums\CustomerSource;
 use App\Enums\OrderLayoutStatus;
 use App\Enums\OrderPaymentStatus;
 use App\Enums\ProductionStage;
+use App\Models\Concerns\BelongsToBranch;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\Storage;
 
 class CustomerOrder extends Model
 {
-    use HasFactory;
+    use BelongsToBranch, HasFactory;
 
     protected $fillable = [
         'order_number',
@@ -23,11 +24,16 @@ class CustomerOrder extends Model
         'customer_name',
         'customer_contact',
         'customer_source',
+        'branch_id',
+        'external_source',
+        'external_id',
         'customer_notes',
         'due_date',
         'order_total',
         'amount_paid',
         'delivery_method',
+        'delivery_address',
+        'payment_method_preference',
         'receiver_name',
         'proof_or_tracking',
         'released_at',

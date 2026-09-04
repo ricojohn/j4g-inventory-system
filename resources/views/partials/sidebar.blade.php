@@ -36,6 +36,9 @@
         @can('view customers')
             <a href="{{ route('customers.index') }}" class="{{ $linkClass(request()->routeIs('customers.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Customers</a>
         @endcan
+        @can('view messenger conversations')
+            <a href="{{ route('messenger.index') }}" class="{{ $linkClass(request()->routeIs('messenger.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Messenger</a>
+        @endcan
         @can('view finance')
             <a href="{{ route('finance.index') }}" class="{{ $linkClass(request()->routeIs('finance.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Finance</a>
         @endcan
@@ -82,6 +85,8 @@
         @endcan
         @can('manage integrations')
             <a href="{{ route('integrations.index') }}" class="{{ $linkClass(request()->routeIs('integrations.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Integrations</a>
+            <a href="{{ route('facebook-pages.index') }}" class="{{ $linkClass(request()->routeIs('facebook-pages.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Facebook Pages</a>
+            <a href="{{ route('business-knowledge-base.index') }}" class="{{ $linkClass(request()->routeIs('business-knowledge-base.*')) }} flex h-9 items-center rounded-md px-2.5 text-[13px]">Knowledge Base</a>
         @endcan
     </nav>
 </aside>

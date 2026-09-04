@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\AiOrderDraftStatus;
 use App\Enums\CustomerSource;
+use App\Models\Concerns\BelongsToBranch;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\Storage;
 
 class AiOrderDraft extends Model
 {
-    use HasFactory;
+    use BelongsToBranch, HasFactory;
 
     protected $fillable = [
         'raw_message',
@@ -26,6 +27,7 @@ class AiOrderDraft extends Model
         'image_path',
         'customer_order_id',
         'created_by',
+        'branch_id',
     ];
 
     protected function casts(): array

@@ -8,9 +8,12 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AiAssistanceController;
 use App\Http\Controllers\AiOrderAssistantController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BusinessKnowledgeBaseController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerOrderController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FacebookConversationController;
+use App\Http\Controllers\FacebookPageController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\InventoryController;
@@ -35,6 +38,35 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+    Route::middleware('permission:manage integrations')->prefix('facebook-pages')->name('facebook-pages.')->group(function () {
+        Route::get('/', [FacebookPageController::class, 'index'])->name('index');
+        Route::post('/', [FacebookPageController::class, 'store'])->name('store');
+        Route::put('/{page}', [FacebookPageController::class, 'update'])->name('update');
+    });
+
+    Route::middleware('permission:manage integrations')->prefix('business-knowledge-base')->name('business-knowledge-base.')->group(function () {
+        Route::get('/', [BusinessKnowledgeBaseController::class, 'index'])->name('index');
+        Route::post('/', [BusinessKnowledgeBaseController::class, 'store'])->name('store');
+        Route::put('/{entry}', [BusinessKnowledgeBaseController::class, 'update'])->name('update');
+        Route::delete('/{entry}', [BusinessKnowledgeBaseController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::middleware('permission:view messenger conversations')->prefix('messenger')->name('messenger.')->group(function () {
+        Route::get('/conversations', [FacebookConversationController::class, 'index'])->name('index');
+        Route::get('/conversations/{conversation}', [FacebookConversationController::class, 'show'])->name('show');
+        Route::get('/conversations/{conversation}/snapshot', [FacebookConversationController::class, 'snapshot'])->name('snapshot');
+        Route::post('/sync', [FacebookConversationController::class, 'sync'])->middleware('permission:view messenger conversations')->name('sync');
+        Route::post('/conversations/{conversation}/tags', [FacebookConversationController::class, 'markTag'])->middleware('permission:take over messenger conversations')->name('tags.store');
+        Route::delete('/conversations/{conversation}/tags/{tag}', [FacebookConversationController::class, 'removeTag'])->middleware('permission:take over messenger conversations')->name('tags.destroy');
+        Route::post('/conversations/{conversation}/take-over', [FacebookConversationController::class, 'takeOver'])->middleware('permission:take over messenger conversations')->name('take-over');
+        Route::post('/conversations/{conversation}/return-to-ai', [FacebookConversationController::class, 'returnToAi'])->middleware('permission:take over messenger conversations')->name('return-to-ai');
+        Route::post('/conversations/{conversation}/reply', [FacebookConversationController::class, 'reply'])->middleware('permission:take over messenger conversations')->name('reply');
+        Route::put('/conversations/{conversation}/draft', [FacebookConversationController::class, 'updateDraft'])->middleware('permission:create messenger orders')->name('draft.update');
+        Route::post('/conversations/{conversation}/prepare-summary', [FacebookConversationController::class, 'prepareSummary'])->middleware('permission:create messenger orders')->name('prepare-summary');
+        Route::post('/conversations/{conversation}/confirm', [FacebookConversationController::class, 'confirm'])->middleware('permission:create messenger orders')->name('confirm');
+        Route::post('/conversations/{conversation}/create-order', [FacebookConversationController::class, 'createOrder'])->middleware('permission:create messenger orders')->name('create-order');
+    });
 
     Route::get('/dashboard/stats', [DashboardController::class, 'stats'])
         ->middleware('permission:view dashboard')

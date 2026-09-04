@@ -205,3 +205,15 @@ test('only one provider can be default', function () {
     expect(Integration::openAi()->fresh()->isDefault())->toBeFalse()
         ->and(Integration::gemini()->fresh()->isDefault())->toBeTrue();
 });
+
+test('credentials encrypted under another app key are treated as disconnected and can be replaced', function () {
+    $integration = createTestIntegration('openai');
+    DB::table('integrations')->where('id', $integration->id)->update(['credentials' => 'invalid-encrypted-payload']);
+
+    $this->actingAs(userWithRole('Admin'))
+        ->get(route('integrations.index'))
+        ->assertOk();
+
+    expect($integration->fresh()->isConnected())->toBeFalse()
+        ->and($integration->fresh()->apiKey())->toBeNull();
+});

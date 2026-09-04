@@ -84,6 +84,9 @@ abstract class AbstractAiProvider implements AiProviderInterface
             'customer_name' => filled($parsed['customer_name'] ?? null) ? (string) $parsed['customer_name'] : null,
             'customer_contact' => filled($parsed['customer_contact'] ?? null) ? (string) $parsed['customer_contact'] : null,
             'customer_source' => filled($parsed['customer_source'] ?? null) ? (string) $parsed['customer_source'] : 'facebook',
+            'fulfillment_method' => filled($parsed['fulfillment_method'] ?? null) ? (string) $parsed['fulfillment_method'] : null,
+            'delivery_address' => filled($parsed['delivery_address'] ?? null) ? (string) $parsed['delivery_address'] : null,
+            'payment_method_preference' => filled($parsed['payment_method_preference'] ?? null) ? (string) $parsed['payment_method_preference'] : null,
             'items' => $normalizedItems,
             'deadline' => filled($parsed['deadline'] ?? null) ? (string) $parsed['deadline'] : null,
             'notes' => filled($parsed['notes'] ?? null) ? (string) $parsed['notes'] : null,
@@ -102,6 +105,9 @@ Return ONLY valid JSON matching this exact schema:
   "customer_name": null,
   "customer_contact": null,
   "customer_source": "facebook",
+  "fulfillment_method": null,
+  "delivery_address": null,
+  "payment_method_preference": null,
   "items": [
     {
       "product_name": "string",
@@ -120,6 +126,9 @@ Return ONLY valid JSON matching this exact schema:
 Rules:
 - intent is create_order when the customer wants to order products.
 - customer_source should be facebook unless clearly another channel (instagram, viber, whatsapp, walk_in, referral, other).
+- Extract fulfillment_method only as delivery or pickup when explicitly stated.
+- Extract delivery_address and payment_method_preference only when explicitly stated; never infer them.
+- Intent and confidence never authorize order creation. They only describe the message.
 - items must list every distinct product/color/size/qty mentioned.
 - Only include colors explicitly named in the customer message. Do not infer or add additional color variants.
 - When multiple sizes are ordered for the same color, create one item per size with the same color_name (e.g. "6 regular, 15 upsize red black" → 2 items, both color_name "RED / BLACK").

@@ -73,4 +73,11 @@ return [
         ],
     ],
 
+    'facebook' => [
+        'app_secret' => env('FACEBOOK_APP_SECRET'),
+        'verify_token' => env('FACEBOOK_VERIFY_TOKEN'),
+        'graph_api_version' => env('FACEBOOK_GRAPH_API_VERSION', 'v23.0'),
+        'request_timeout' => (int) env('FACEBOOK_REQUEST_TIMEOUT', 15),
+    ],
+
 ];
