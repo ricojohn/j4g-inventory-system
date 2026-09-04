@@ -125,7 +125,7 @@
                                 <div class="flex {{ $message->direction === 'inbound' ? 'justify-start' : 'justify-end' }}" data-message-item data-message-id="{{ $message->id }}">
                                     <div class="max-w-[80%] rounded-2xl px-4 py-3 text-[13px] shadow-sm {{ $message->direction === 'inbound' ? 'bg-gray-100 text-gray-900' : 'bg-brand text-white' }}">
                                         <p class="mb-1 text-[11px] font-medium {{ $message->direction === 'inbound' ? 'text-gray-500' : 'text-brand-soft' }}">
-                                            {{ ucfirst($message->sender_type) }} · {{ $message->sent_at ? \Carbon\Carbon::parse($message->sent_at, 'UTC')->setTimezone('Asia/Manila')->format('Y-m-d h:i:s A') : 'N/A' }}
+                                            {{ ucfirst($message->sender_type) }} · {{ $message->getRawOriginal('sent_at') ? \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $message->getRawOriginal('sent_at'), 'UTC')->setTimezone('Asia/Manila')->format('Y-m-d h:i:s A') : 'N/A' }}
                                         </p>
                                         <p class="whitespace-pre-wrap">{{ filled($message->body) ? $message->body : ($message->attachments ? 'Attachment' : '['.$message->message_type.']') }}</p>
                                     </div>

@@ -15,6 +15,7 @@ use App\Services\Facebook\CreateMessengerOrderService;
 use App\Services\Facebook\MessengerConversationService;
 use App\Services\Facebook\MessengerOrderDraftService;
 use App\Services\Facebook\MessengerSyncService;
+use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -325,8 +326,12 @@ class FacebookConversationController extends Controller
                     'body' => $message->body,
                     'ai_generated' => $message->ai_generated,
                     'status' => $message->status,
-                    'sent_at' => $message->sent_at?->toIso8601String(),
-                    'created_at' => ($message->sent_at ?? $message->created_at)?->toIso8601String(),
+                    'sent_at' => $message->getRawOriginal('sent_at')
+                        ? Carbon::createFromFormat('Y-m-d H:i:s', $message->getRawOriginal('sent_at'), 'UTC')->toIso8601String()
+                        : null,
+                    'created_at' => $message->getRawOriginal('sent_at')
+                        ? Carbon::createFromFormat('Y-m-d H:i:s', $message->getRawOriginal('sent_at'), 'UTC')->toIso8601String()
+                        : $message->created_at?->toIso8601String(),
                 ];
             }),
             'draft' => $conversation->draft ? [
