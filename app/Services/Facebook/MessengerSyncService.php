@@ -130,6 +130,8 @@ class MessengerSyncService
                 'attachments' => $attachments,
                 'status' => 'received',
                 'sent_at' => $createdAt,
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
             ],
         );
 

@@ -12,7 +12,7 @@
 
     @can('view messenger conversations')
         <div class="flex justify-end">
-            <form method="POST" action="{{ route('messenger.sync') }}" class="flex items-center gap-2">
+            <form method="POST" action="{{ route('messenger.sync') }}" class="flex items-center gap-2" data-sync-form>
                 @csrf
                 <x-ui.button type="submit">Sync Messages</x-ui.button>
             </form>
@@ -321,4 +321,45 @@
     <div class="hidden" data-messenger-snapshot-url="{{ $selectedConversation ? route('messenger.snapshot', $selectedConversation) : '' }}"></div>
     <div class="hidden" data-selected-conversation-id="{{ $selectedConversationId }}"></div>
 </div>
+
+<div class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-900/45 p-4" data-sync-modal aria-live="polite" role="dialog" aria-modal="true" aria-label="Syncing Messenger messages">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <h2 class="text-base font-semibold text-gray-900">Syncing Messenger messages</h2>
+                <p class="mt-1 text-sm text-gray-500" data-sync-status>Downloading the latest conversations…</p>
+            </div>
+            <span class="text-lg font-semibold text-brand" data-sync-percent>0%</span>
+        </div>
+        <div class="mt-5 h-2 overflow-hidden rounded-full bg-gray-100">
+            <div class="h-full w-0 rounded-full bg-brand transition-[width] duration-300" data-sync-progress></div>
+        </div>
+        <p class="mt-3 text-xs text-gray-500">Please keep this page open. It will refresh when synchronization is complete.</p>
+    </div>
+</div>
 @endsection
+
+@push('scripts')
+<script>
+    (() => {
+        const form = document.querySelector('[data-sync-form]');
+        const modal = document.querySelector('[data-sync-modal]');
+        if (!form || !modal) return;
+        form.addEventListener('submit', () => {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            let percent = 0;
+            const percentNode = modal.querySelector('[data-sync-percent]');
+            const progressNode = modal.querySelector('[data-sync-progress]');
+            const statusNode = modal.querySelector('[data-sync-status]');
+            const timer = window.setInterval(() => {
+                percent = Math.min(percent + (percent < 70 ? 7 : 2), 95);
+                percentNode.textContent = `${percent}%`;
+                progressNode.style.width = `${percent}%`;
+                if (percent >= 70) statusNode.textContent = 'Processing messages and updating conversations…';
+            }, 350);
+            window.addEventListener('pagehide', () => window.clearInterval(timer), { once: true });
+        });
+    })();
+</script>
+@endpush

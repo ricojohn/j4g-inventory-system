@@ -64,6 +64,8 @@ class ProcessFacebookWebhookEvent implements ShouldQueue
                     'body' => $body,
                     'attachments' => data_get($payload, 'message.attachments'),
                     'status' => 'received',
+                    'created_at' => $event->meta_timestamp ?? now(),
+                    'updated_at' => $event->meta_timestamp ?? now(),
                 ],
             );
 
