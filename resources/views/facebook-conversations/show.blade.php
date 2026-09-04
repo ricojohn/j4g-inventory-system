@@ -322,8 +322,8 @@
     <div class="hidden" data-selected-conversation-id="{{ $selectedConversationId }}"></div>
 </div>
 
-<div class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-900/45 p-4" data-sync-modal aria-live="polite" role="dialog" aria-modal="true" aria-label="Syncing Messenger messages">
-    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+<div class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="background-color: rgba(17, 24, 39, 0.58);" data-sync-modal aria-live="polite" role="dialog" aria-modal="true" aria-label="Syncing Messenger messages">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-black/10">
         <div class="flex items-center justify-between gap-4">
             <div>
                 <h2 class="text-base font-semibold text-gray-900">Syncing Messenger messages</h2>
