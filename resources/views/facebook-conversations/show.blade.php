@@ -121,11 +121,22 @@
 
                     <div class="min-h-0 flex-1 overflow-y-auto bg-white px-4 py-5" data-message-scroll>
                         <div class="mx-auto flex max-w-4xl flex-col gap-3" data-message-list>
+                            @php $previousMessageTime = null; @endphp
                             @forelse ($selectedConversation->messages as $message)
+                                @php
+                                    $messageTime = $message->getRawOriginal('sent_at')
+                                        ? \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $message->getRawOriginal('sent_at'), 'UTC')->setTimezone('Asia/Manila')
+                                        : null;
+                                    $showMessageTime = $messageTime && (! $previousMessageTime || $messageTime->diffInMinutes($previousMessageTime) >= 5);
+                                    $previousMessageTime = $messageTime ?: $previousMessageTime;
+                                @endphp
+                                @if ($showMessageTime)
+                                    <div class="my-2 text-center text-[11px] font-medium text-gray-500" data-message-time>{{ $messageTime->format('D g:i A') }}</div>
+                                @endif
                                 <div class="flex {{ $message->direction === 'inbound' ? 'justify-start' : 'justify-end' }}" data-message-item data-message-id="{{ $message->id }}">
                                     <div class="max-w-[80%] rounded-2xl px-4 py-3 text-[13px] shadow-sm {{ $message->direction === 'inbound' ? 'bg-gray-100 text-gray-900' : 'bg-brand text-white' }}">
                                         <p class="mb-1 text-[11px] font-medium {{ $message->direction === 'inbound' ? 'text-gray-500' : 'text-brand-soft' }}">
-                                            {{ ucfirst($message->sender_type) }} · {{ $message->getRawOriginal('sent_at') ? \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $message->getRawOriginal('sent_at'), 'UTC')->setTimezone('Asia/Manila')->format('Y-m-d h:i:s A') : 'N/A' }}
+                                            {{ ucfirst($message->sender_type) }}
                                         </p>
                                         <p class="whitespace-pre-wrap">{{ filled($message->body) ? $message->body : ($message->attachments ? 'Attachment' : '['.$message->message_type.']') }}</p>
                                     </div>

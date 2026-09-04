@@ -39,13 +39,18 @@ function formatTime(iso) {
     }).format(date);
 }
 
-function renderMessage(message) {
+function renderMessage(message, index, messages) {
     const outbound = message.direction === 'outbound';
     const alignment = outbound ? 'justify-end' : 'justify-start';
     const bubble = outbound ? 'bg-brand text-white' : 'bg-gray-100 text-gray-900';
     const meta = outbound ? 'text-brand-soft' : 'text-gray-500';
 
-    return `
+    const currentTime = message.sent_at || message.created_at;
+    const previousTime = index > 0 ? (messages[index - 1].sent_at || messages[index - 1].created_at) : null;
+    const showTime = currentTime && (!previousTime || (new Date(currentTime) - new Date(previousTime)) >= 5 * 60 * 1000);
+    const timeLabel = showTime ? new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: document.querySelector('[data-app-timezone]')?.dataset.appTimezone || 'Asia/Manila' }).format(new Date(currentTime)) : '';
+
+    return `${showTime ? `<div class="my-2 text-center text-[11px] font-medium text-gray-500" data-message-time>${sanitize(timeLabel)}</div>` : ''}
         <div class="flex ${alignment}">
             <div class="max-w-[80%] rounded-2xl px-4 py-3 text-[13px] shadow-sm ${bubble}">
                 <p class="mb-1 text-[11px] font-medium ${meta}">
